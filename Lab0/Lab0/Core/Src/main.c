@@ -92,7 +92,7 @@ static void MX_TIM6_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 int delay=1000;
-void HAL_GPIO_EXTI_Callback(uint16_t pin)//function interupt ex 3
+void HAL_GPIO_EXTI_Callback(uint16_t pin)//function interrupt exe. 3
 {
 	if(delay!=100)
 		delay-=100;
@@ -152,7 +152,7 @@ int main(void)
   MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
   /*
-  //exe 1
+  //exe. 1
   HAL_GPIO_WritePin(GPIOE,GPIO_PIN_5,1);
   HAL_Delay(1000);
   HAL_GPIO_WritePin(GPIOE,GPIO_PIN_5,0);
