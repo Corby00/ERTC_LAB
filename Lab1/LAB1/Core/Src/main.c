@@ -116,9 +116,10 @@ int add(int a, int b)
 	return a+b;
 }
 
-int prova2(int b, int c)
+void provva (int a)
 {
-	print("prova");
+	// Fa niente -_-
+	return;
 }
 
 /* USER CODE END 0 */
