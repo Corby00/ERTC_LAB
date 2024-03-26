@@ -109,6 +109,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 }
 
 /* USER CODE END 0 */
+char key_mem[10];//char vector of keypad memory
 
 /**
   * @brief  The application entry point.
@@ -119,6 +120,8 @@ int main(void)
   /* USER CODE BEGIN 1 */
   uint8_t data;
   HAL_StatusTypeDef status;
+
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
