@@ -111,6 +111,11 @@ int prova(int a,int b,int c)
 	printf("a, b, c");
 }
 
+int add(int a, int b)
+{
+	return a+b;
+}
+
 /* USER CODE END 0 */
 
 /**
