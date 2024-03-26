@@ -200,17 +200,35 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
-  * @brief This function handles EXTI line4 interrupt.
+  * @brief This function handles EXTI line[9:5] interrupts.
   */
-void EXTI4_IRQHandler(void)
+void EXTI9_5_IRQHandler(void)
 {
-  /* USER CODE BEGIN EXTI4_IRQn 0 */
+  /* USER CODE BEGIN EXTI9_5_IRQn 0 */
 
-  /* USER CODE END EXTI4_IRQn 0 */
-  HAL_GPIO_EXTI_IRQHandler(GPIO_EXTI4_KPAD_IRQ_Pin);
-  /* USER CODE BEGIN EXTI4_IRQn 1 */
+  /* USER CODE END EXTI9_5_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_EXTI8_USER_BUT1_IRQ_Pin);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_EXTI9_USER_BUT2_IRQ_Pin);
+  /* USER CODE BEGIN EXTI9_5_IRQn 1 */
 
-  /* USER CODE END EXTI4_IRQn 1 */
+  /* USER CODE END EXTI9_5_IRQn 1 */
+}
+
+/**
+  * @brief This function handles EXTI line[15:10] interrupts.
+  */
+void EXTI15_10_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI15_10_IRQn 0 */
+
+  /* USER CODE END EXTI15_10_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_EXTI10_BUMP1_IRQ_Pin);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_EXTI11_BUMP2_IRQ_Pin);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_EXTI12_BUMP3_IRQ_Pin);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_EXTI13_BUMP4_IRQ_Pin);
+  /* USER CODE BEGIN EXTI15_10_IRQn 1 */
+
+  /* USER CODE END EXTI15_10_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
