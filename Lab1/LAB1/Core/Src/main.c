@@ -116,6 +116,12 @@ int add(int a, int b)
 	return a+b;
 }
 
+void provva (int a)
+{
+	// Fa niente -_-
+	return;
+}
+
 /* USER CODE END 0 */
 
 /**
