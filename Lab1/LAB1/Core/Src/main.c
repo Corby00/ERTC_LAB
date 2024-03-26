@@ -116,6 +116,11 @@ int add(int a, int b)
 	return a+b;
 }
 
+int prova2(int b, int c)
+{
+	print("prova");
+}
+
 /* USER CODE END 0 */
 
 /**
