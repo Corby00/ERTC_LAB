@@ -109,6 +109,14 @@ extern void initialise_monitor_handles(void);
 
 uint8_t regCol, regRow;
 
+uint8_t f_led=1;//frequency of the led actualy running
+uint8_t f_user=1;//frequency setted by the user (keypad input)
+uint8_t PSC_led=1000;//prescaler of the timer 7 "collegato" led
+
+uint8_t f_clock=17000000;// frequency of the micro(da modificare con e)
+uint8_t f_led_min=1;//frequency min of the led
+uint8_t f_led_max=1000;//frequency max of the led
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   printf("Interrupt on pin (%d).\n", GPIO_Pin);
@@ -148,6 +156,31 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
  *
  * */
 
+//timers call back setting(must be implemented whit other timers interups)-----------------------------------------------------------------------------------
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+
+	if(f_led!=f_user)//ceck if f_led is changed (ponder to swap position)
+	{
+		if(f_user>f_led_max)//if i would set a freq grater the f max i wil set the f max
+		{
+			f_user=f_led_max;
+		}
+		if(f_user<f_led_min)//if i would set a freq grater the f min i wil set the f min
+		{
+			f_user=f_led_min;
+		}
+		PSC_led=(int)(f_user/f_clock)/(Counter_ex4+1);//evaluate new precaler
+
+		__HAL_TIM_SET_PRESCALER(&htim7,PSC_led);//set new prescaler
+	}
+
+	if(htim->Instance == TIM7)//when timer 7 call the interupt
+	{
+		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);//toggle the led
+	}
+
+}
 
 /* USER CODE END 0 */
 
@@ -332,6 +365,10 @@ int main(void)
 
 
   printf("Ready\n");
+
+  //start timer7----------------------------------------------------------------------------------------
+  HAL_TIM_Base_Start_IT(&htim7);
+
 
   /* USER CODE END 2 */
 
