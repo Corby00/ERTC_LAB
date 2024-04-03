@@ -108,10 +108,20 @@ extern void initialise_monitor_handles(void);
 /* USER CODE BEGIN 0 */
 
 uint8_t regCol, regRow;
-
+uint8_t line_sensor[8];
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	if(htim->Instance == TIM6)
+	{
+		HAL_StatusTypeDef status1;
+		status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DATA_B, 1, &line_sensor[0], 8, I2C_TIMEOUT);
+		printf("I2C communication error (%X).\n", status1);
+	}
+}
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   printf("Interrupt on pin (%d).\n", GPIO_Pin);
+
   /* your code here */
   if (GPIO_Pin==16){
 	 HAL_StatusTypeDef status1, status2;
@@ -330,7 +340,7 @@ int main(void)
   HAL_Delay(100);
   HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 
-
+  HAL_TIM_Base_Start_IT(&htim6);
   printf("Ready\n");
 
   /* USER CODE END 2 */
