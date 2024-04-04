@@ -155,6 +155,26 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
  * 	- the maximum time before raising the timeout error.
  *
  * */
+
+//function from char vector to int var
+int ve_char2var_int(char vector[])
+{
+ int variable=0;//output
+ int int_vect[4];
+
+ for(i=0;i<sizeof(vector);i++)// for evry char convert it to int
+ {
+  int_vect(i)=(int)vector(i)-(int)'0';//int will convert the char in the ASCII code and i will subtract the 0 ASCII code
+ }
+ 
+ for(i=0;i<sizeof(vector);i++)// for each unit i mult for his unit poker and sum in variable
+ {
+  variable+=int_vect(i)*pow(10,(sizeof(vector)-i));
+ }
+
+ return variable
+}
+
 //function timer modify‐-------------------------------------------
 void f_timer7_edit()
 {
