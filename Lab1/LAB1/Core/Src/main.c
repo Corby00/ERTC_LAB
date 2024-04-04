@@ -155,25 +155,28 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
  * 	- the maximum time before raising the timeout error.
  *
  * */
+//function timer modify‐-------------------------------------------
+void f_timer7_edit()
+{
+  if(f_led!=f_user)//ceck if f_led is changed (ponder to swap position)
+	 {
+		 if(f_user>f_led_max)//if i would set a freq grater the f max i wil set the f max
+		 {
+			 f_user=f_led_max;
+		 }
+		 if(f_user<f_led_min)//if i would set a freq grater the f min i wil set the f min
+		 {
+			 f_user=f_led_min;
+		 }
+		 PSC_led=(int)(f_user/f_clock)/(Counter_ex4+1);//evaluate new precaler
+
+		 __HAL_TIM_SET_PRESCALER(&htim7,PSC_led);//set new prescaler
+	 }  
+}
 
 //timers call back setting(must be implemented whit other timers interups)-----------------------------------------------------------------------------------
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-
-	if(f_led!=f_user)//ceck if f_led is changed (ponder to swap position)
-	{
-		if(f_user>f_led_max)//if i would set a freq grater the f max i wil set the f max
-		{
-			f_user=f_led_max;
-		}
-		if(f_user<f_led_min)//if i would set a freq grater the f min i wil set the f min
-		{
-			f_user=f_led_min;
-		}
-		PSC_led=(int)(f_user/f_clock)/(Counter_ex4+1);//evaluate new precaler
-
-		__HAL_TIM_SET_PRESCALER(&htim7,PSC_led);//set new prescaler
-	}
 
 	if(htim->Instance == TIM7)//when timer 7 call the interupt
 	{
@@ -181,6 +184,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	}
 
 }
+
 
 /* USER CODE END 0 */
 
