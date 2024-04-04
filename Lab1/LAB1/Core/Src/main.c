@@ -160,7 +160,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 int ve_char2var_int(char vector[])
 {
  int variable=0;//output
- int int_vect[4];
+ int int_vect[sizeof(vector)];
 
  for(i=0;i<sizeof(vector);i++)// for evry char convert it to int
  {
@@ -188,9 +188,11 @@ void f_timer7_edit()
 		 {
 			 f_user=f_led_min;
 		 }
-		 PSC_led=(int)(f_user/f_clock)/(Counter_ex4+1);//evaluate new precaler
+		 Counter_led=(int)((f_user/f_clock)/(PSC_ex4))-1;//evaluate new counter
 
-		 __HAL_TIM_SET_PRESCALER(&htim7,PSC_led);//set new prescaler
+		 __HAL_TIM_SET_COUNTER(&htim7,Counter_led);//set new counter
+
+   f_led=f_user;// set current f to requisit f
 	 }  
 }
 
