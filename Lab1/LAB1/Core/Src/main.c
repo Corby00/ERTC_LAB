@@ -127,6 +127,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 		printf("\n");
 	}
+
+	if(htim->Instance == TIM7)//when timer 7 call the interupt
+		{
+			HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);//toggle the led
+		}
 }
 
 char keyinput[4];
@@ -137,9 +142,49 @@ uint8_t f_led=1;//frequency of the led actualy running
 uint8_t f_user=1;//frequency setted by the user (keypad input)
 uint8_t Counter_led;//countwr value of the timer 7 "collegato" led
 
-uint8_t f_clock=17000000;// frequency of the micro(da modificare con e)
+long f_clock=17000000;// frequency of the micro(da modificare con e)
 uint8_t f_led_min=1;//frequency min of the led
-uint8_t f_led_max=1000;//frequency max of the led
+int f_led_max=1000;//frequency max of the led
+
+//function from char vector to int var
+int ve_char2var_int(char vector[])
+{
+ int variable=0;//output
+ int int_vect[sizeof(vector)];
+
+ for(int i=0;i<sizeof(vector);i++)// for evry char convert it to int
+ {
+  int_vect[i]=(int)vector[i]-(int)'0';//int will convert the char in the ASCII code and i will subtract the 0 ASCII code
+ }
+
+ for(int i=0;i<sizeof(vector);i++)// for each unit i mult for his unit poker and sum in variable
+ {
+  variable+=int_vect[i]*pow(10,(sizeof(vector)-i));
+ }
+
+ return variable;
+}
+
+//function timer modify‐-------------------------------------------
+void f_timer7_edit()
+{
+  if(f_led!=f_user)//ceck if f_led is changed (ponder to swap position)
+	 {
+		 if(f_user>f_led_max)//if i would set a freq grater the f max i wil set the f max
+		 {
+			 f_user=f_led_max;
+		 }
+		 if(f_user<f_led_min)//if i would set a freq grater the f min i wil set the f min
+		 {
+			 f_user=f_led_min;
+		 }
+		 Counter_led=(int)((f_user/f_clock)/(PSC_ex4))-1;//evaluate new counter
+
+		 __HAL_TIM_SET_COUNTER(&htim7,Counter_led);//set new counter
+
+   f_led=f_user;// set current f to requisit f
+	 }
+}
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
@@ -200,6 +245,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	 }else
 	 {
 		 i=0;
+		 f_user = ve_char2var_int(keyinput);
+		 f_timer7_edit();
 	 }
 
   }
@@ -232,56 +279,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
  *
  * */
 
-//function from char vector to int var
-int ve_char2var_int(char vector[])
-{
- int variable=0;//output
- int int_vect[sizeof(vector)];
 
- for(int i=0;i<sizeof(vector);i++)// for evry char convert it to int
- {
-  int_vect[i]=(int)vector[i]-(int)'0';//int will convert the char in the ASCII code and i will subtract the 0 ASCII code
- }
- 
- for(int i=0;i<sizeof(vector);i++)// for each unit i mult for his unit poker and sum in variable
- {
-  variable+=int_vect[i]*pow(10,(sizeof(vector)-i));
- }
-
- return variable;
-}
-
-//function timer modify‐-------------------------------------------
-void f_timer7_edit()
-{
-  if(f_led!=f_user)//ceck if f_led is changed (ponder to swap position)
-	 {
-		 if(f_user>f_led_max)//if i would set a freq grater the f max i wil set the f max
-		 {
-			 f_user=f_led_max;
-		 }
-		 if(f_user<f_led_min)//if i would set a freq grater the f min i wil set the f min
-		 {
-			 f_user=f_led_min;
-		 }
-		 Counter_led=(int)((f_user/f_clock)/(PSC_ex4))-1;//evaluate new counter
-
-		 __HAL_TIM_SET_COUNTER(&htim7,Counter_led);//set new counter
-
-   f_led=f_user;// set current f to requisit f
-	 }  
-}
-
-//timers call back setting(must be implemented whit other timers interups)-----------------------------------------------------------------------------------
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-
-	if(htim->Instance == TIM7)//when timer 7 call the interupt
-	{
-		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);//toggle the led
-	}
-
-}
 
 
 /* USER CODE END 0 */
