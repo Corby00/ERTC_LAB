@@ -107,7 +107,7 @@ extern void initialise_monitor_handles(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-uint8_t regCol, regRow;
+
 uint8_t line_sensor;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -128,6 +128,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		printf("%d.\n", line_sensor);
 	}
 }
+
+char keyinput[4];
+int i=0;
+uint8_t regCol, regRow;
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   printf("Interrupt on pin (%d).\n", GPIO_Pin);
@@ -138,6 +143,57 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	 status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_DATA_1, 1, &regCol, 1, I2C_TIMEOUT);
 	 status2 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_DATA_2, 1, &regRow, 1, I2C_TIMEOUT);
 	 printf("I2C communication error (%X).\n", status2);
+	 printf("I2C communication error (%X).\n", status1);
+
+	 switch (regRow){
+	 case 254:
+		 	 regRow=0;
+		 	 break;
+	 case 253:
+	 		 regRow=1;
+	 		 break;
+	 case 251:
+	 		 regRow=2;
+	 		 break;
+	 case 247:
+	 		 regRow=3;
+	 		 break;
+	 default:
+		 printf("error row \n");
+		 break;
+	 }
+
+	 switch (regCol){
+	 	 case 254:
+	 		 	 regCol=0;
+	 		 	 break;
+	 	 case 253:
+	 	 		 regCol=1;
+	 	 		 break;
+	 	 case 251:
+	 	 		 regCol=2;
+	 	 		 break;
+	 	 case 247:
+	 	 		 regCol=3;
+	 	 		 break;
+	 	 default:
+	 		 printf("error column \n");
+	 		 break;
+	 	 }
+
+	 printf("Row: %d \n", regRow);
+	 printf("Column: %d \n", regCol);
+	 printf("Keypad button: %c \n", keypadLayout[regRow][regCol]);
+
+	 if(keypadLayout[regRow][regCol]!='#')//ceck if if press # and if not mem the valiue
+	 {
+		 keyinput[i]= keypadLayout[regRow][regCol];
+		 i=i+1;
+	 }else
+	 {
+		 i=0;
+	 }
+
   }
 }
 
