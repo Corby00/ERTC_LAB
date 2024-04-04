@@ -108,14 +108,24 @@ extern void initialise_monitor_handles(void);
 /* USER CODE BEGIN 0 */
 
 uint8_t regCol, regRow;
-uint8_t line_sensor[8];
+uint8_t line_sensor;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if(htim->Instance == TIM6)
 	{
 		HAL_StatusTypeDef status1;
-		status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DATA_B, 1, &line_sensor[0], 8, I2C_TIMEOUT);
+		status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DATA_B, 1, &line_sensor, 1, I2C_TIMEOUT);
 		printf("I2C communication error (%X).\n", status1);
+		printf("line_sensor_read.\n");
+		while (line_sensor){
+			if (line_sensor & 1)
+				printf("1");
+			else
+				printf("0");
+			line_sensor >>=1;
+		}
+		printf("\n");
+		printf("%d.\n", line_sensor);
 	}
 }
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
@@ -942,7 +952,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 16999;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 999;
+  htim6.Init.Period = 9999; /*we changed 999 to 9999 find me*/
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
