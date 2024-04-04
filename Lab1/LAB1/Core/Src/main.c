@@ -111,7 +111,7 @@ uint8_t regCol, regRow;
 
 uint8_t f_led=1;//frequency of the led actualy running
 uint8_t f_user=1;//frequency setted by the user (keypad input)
-uint8_t PSC_led=1000;//prescaler of the timer 7 "collegato" led
+uint8_t Counter_led;//countwr value of the timer 7 "collegato" led
 
 uint8_t f_clock=17000000;// frequency of the micro(da modificare con e)
 uint8_t f_led_min=1;//frequency min of the led
@@ -162,17 +162,17 @@ int ve_char2var_int(char vector[])
  int variable=0;//output
  int int_vect[sizeof(vector)];
 
- for(i=0;i<sizeof(vector);i++)// for evry char convert it to int
+ for(int i=0;i<sizeof(vector);i++)// for evry char convert it to int
  {
-  int_vect(i)=(int)vector(i)-(int)'0';//int will convert the char in the ASCII code and i will subtract the 0 ASCII code
+  int_vect[i]=(int)vector[i]-(int)'0';//int will convert the char in the ASCII code and i will subtract the 0 ASCII code
  }
  
- for(i=0;i<sizeof(vector);i++)// for each unit i mult for his unit poker and sum in variable
+ for(int i=0;i<sizeof(vector);i++)// for each unit i mult for his unit poker and sum in variable
  {
-  variable+=int_vect(i)*pow(10,(sizeof(vector)-i));
+  variable+=int_vect[i]*pow(10,(sizeof(vector)-i));
  }
 
- return variable
+ return variable;
 }
 
 //function timer modify‐-------------------------------------------
