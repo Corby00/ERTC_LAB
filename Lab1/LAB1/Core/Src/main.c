@@ -115,8 +115,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	{
 		HAL_StatusTypeDef status1;
 		status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DATA_B, 1, &line_sensor, 1, I2C_TIMEOUT);
-		printf("I2C communication error (%X).\n", status1);
-		printf("line_sensor_read.\n");
+		if (status1 != 0 ){
+			printf("I2C communication error (%X).\n", status1);}
+		printf("line_sensor_read: ");
 		for (int i=0; i<8 ; i++){
 			if (line_sensor & 1)
 				printf("1");
@@ -125,7 +126,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			line_sensor >>=1;
 		}
 		printf("\n");
-		printf("%d.\n", line_sensor);
 	}
 }
 
