@@ -142,28 +142,28 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	 }
 
 	 switch (regCol){
-	 	 case 254:
-	 		 	 regCol=0;
-	 		 	 break;
-	 	 case 253:
-	 	 		 regCol=1;
-	 	 		 break;
-	 	 case 251:
-	 	 		 regCol=2;
-	 	 		 break;
-	 	 case 247:
-	 	 		 regCol=3;
-	 	 		 break;
-	 	 default:
-	 		 printf("error column \n");
+	 case 254:
+	 		 regCol=0;
 	 		 break;
-	 	 }
+	 case 253:
+	 		 regCol=1;
+	 	 	 break;
+	 case 251:
+	 	 	 regCol=2;
+	 		 break;
+	 case 247:
+	 	 	 regCol=3;
+	 	 	 break;
+	 default:
+	 	 printf("error column \n");
+	 	 break;
+	 }
 
 	 printf("Row: %d \n", regRow);
 	 printf("Column: %d \n", regCol);
 	 printf("Keypad button: %c \n", keypadLayout[regRow][regCol]);
 
-	 if(keypadLayout[regRow][regCol]!='#')//ceck if if press # and if not mem the valiue
+	 if(keypadLayout[regRow][regCol]!='#')//check if press # and if not mem the value
 	 {
 		 keyinput[i]= keypadLayout[regRow][regCol];
 		 i=i+1;
