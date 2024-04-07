@@ -1,0 +1,27 @@
+HOW does HAL_I2C_Mem_Read work?
+ 
+ *
+ * Example of line code:
+ * status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_DATA_1, 1, &regCol, 1, I2C_TIMEOUT);
+ *
+ * status1 is a variable of type HAL_StatusTypeDef, it must be defined as all variables in C; in the end
+ * it contains just an integer value, that could mean different things depending on the value itself:
+ * 	-0x00U : the read was fine, no problem at all;
+ * 	-0x01U : there was a not better specified error in the read;
+ * 	-0x02U : the peripheral, or the I2C line, was busy, and hence the read failed;
+ * 	-0x03U : the peripheral took to long time to communicate, and a timeout error occurred.
+ *
+ * When we call the function HAL_I2C_Mem_Read we have to pass the following:
+ * 	- pointer to the structure that defines the I2C communication parameters - the & means that we pass
+ * 	  the pointer - e.g. &hi2c1
+ * 	- peripheral address: in our case, for the keypad the address is contained in the constant
+ * 	  SX1509_I2C_ADDR2; we have to make a left-shift of 1 bit because the addresses in the I2C are composed
+ * 	  by 7 bits, the 8th bits (the LSB) is used for set the communication as writ or read; such bit is
+ * 	  imposed by the function itself, we just have to set it to 0. - e.g. SX1509_I2C_ADDR2 << 1.
+ * 	- register address: the address of the register we want to read. - e.g. REG_KEY_DATA_1 = 0x27
+ * 	- length of register address in bytes: for the keypad it is 1 byte.
+ * 	- pointer to the variable where we want to store what we read from the peripheral - e.g. &regCol
+ * 	- the length of the variable we are going to store in bytes: in the line above it is just 1 byte.
+ * 	- the maximum time before raising the timeout error.
+ *
+ * */
