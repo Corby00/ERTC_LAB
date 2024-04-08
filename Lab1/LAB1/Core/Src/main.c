@@ -151,7 +151,7 @@ uint8_t Counter_led;//counter value of the timer 7 "collegato" led
 unsigned int f_led=1; //frequency of the led actually running
 unsigned int f_user=1;//frequency set by the user (keypad input)
 uint16_t Counter_led;//counter value of the timer 7 "collegato" led
-unsigned int f_clock=17e6;// frequency of the micro-controller(da modificare con e)
+unsigned int f_clock=170e6;// frequency of the micro-controller(da modificare con e)
 
 int f_led_min=1;//frequency min of the led
 int f_led_max=1000;//frequency max of the led
@@ -160,7 +160,9 @@ int f_led_max=1000;//frequency max of the led
 int ve_char2var_int(char vector[])
 {
 	int variable=0; //output
-	int int_vect[sizeof(vector)];
+
+	int int_vect[sizeof(vector)]; ///---------------------------------- The error is using sizeof... in our case
+									//									it returns 8, not 4
 
 	for(int i=0;i<sizeof(vector);i++)// for every char convert it to int
 	{
@@ -169,8 +171,11 @@ int ve_char2var_int(char vector[])
 
 	for(int i=0;i<sizeof(vector);i++)// for each unit i mult for his unit poker and sum in variable
 	{
-		variable+=int_vect[i]*pow(10,(sizeof(vector)-i));
+		variable+=int_vect[i]*pow(10,(sizeof(vector)-i)); //------------ This solution with pow cannot work since it does not
+															//---------- keep into account partially filled vector.
 	}
+
+    // sscanf(vector, "%d", &variable); Possible solution -------------------- SOLUTION 2
 
 	return variable;
 }
@@ -201,9 +206,17 @@ void f_timer7_edit()
 		 *																		 ONE, NEITHER A SUB-OPTIMAL)
 		 */
 
-		Counter_led=(int)((f_user/f_clock)/(PSC_ex4))-1;//evaluate new counter
+		Counter_led=(int)((f_user/f_clock)/(PSC_ex4))-1;//evaluate new counter ---------- THERE IS AN ERROR
+															//----------------------------INVERTING THE FORMULA
+
+		// Counter_led = (int) ((((double)f_clock/PSC_ex4)/f_user)-1); // New counter formula, corrected --- SOLUTION 2
 
 		__HAL_TIM_SET_COUNTER(&htim7,Counter_led);//set new counter
+
+		double actual_freq = ((double) f_clock)/((PSC_ex4)*(Counter_led+1));  //Metric for evaluation of the goodness
+																			  //of the code.
+		printf("Desired blinking freq: %d\n", f_user);
+		printf("Actual  blinking freq: %g\n", actual_freq);
 
 		f_led=f_user;// set current f to desired f
 	}
@@ -267,6 +280,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		 i=i+1;
 	 }else
 	 {
+		 // keyinput[i]='\0'; // End of string character    --------------------- SOLUTION 2
 		 i=0;
 		 f_user = ve_char2var_int(keyinput);
 		 f_timer7_edit();
@@ -464,19 +478,12 @@ int main(void)
   HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 
   //start timers ----------------------------------------------------------------------------------------
-  // HAL_TIM_Base_Start_IT(&htim7);
-  // HAL_TIM_Base_Start_IT(&htim6); ------------------------------ TO UNCOMMENT
+  HAL_TIM_Base_Start_IT(&htim7);
+  HAL_TIM_Base_Start_IT(&htim6);
 
   printf("Ready\n");
 
   /* USER CODE END 2 */
-  keyinput[0]='7';
-  keyinput[1]='0';
-  keyinput[2]='0';
-  f_user = ve_char2var_int(keyinput);
-  f_timer7_edit();
-
-  printf("OOOO: %d", f_led);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
