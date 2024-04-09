@@ -151,7 +151,7 @@ uint8_t Counter_led;//counter value of the timer 7 "collegato" led
 unsigned int f_led=1; //frequency of the led actually running
 unsigned int f_user=1;//frequency set by the user (keypad input)
 uint16_t Counter_led;//counter value of the timer 7 "collegato" led
-unsigned int f_clock=170e6;// frequency of the micro-controller(da modificare con e)
+unsigned int f_clock=170e6;// frequency of the micro-controller
 
 int f_led_min=1;//frequency min of the led
 int f_led_max=1000;//frequency max of the led
@@ -161,21 +161,7 @@ int ve_char2var_int(char vector[])
 {
 	int variable=0; //output
 
-	int int_vect[sizeof(vector)]; ///---------------------------------- The error is using sizeof... in our case
-									//									it returns 8, not 4
-
-	for(int i=0;i<sizeof(vector);i++)// for every char convert it to int
-	{
-		int_vect[i]=(int)vector[i]-(int)'0';//int will convert the char in the ASCII code and i will subtract the 0 ASCII code
-	}
-
-	for(int i=0;i<sizeof(vector);i++)// for each unit i mult for his unit poker and sum in variable
-	{
-		variable+=int_vect[i]*pow(10,(sizeof(vector)-i)); //------------ This solution with pow cannot work since it does not
-															//---------- keep into account partially filled vector.
-	}
-
-    // sscanf(vector, "%d", &variable); Possible solution -------------------- SOLUTION 2
+    sscanf(vector, "%d", &variable);
 
 	return variable;
 }
@@ -189,27 +175,13 @@ void f_timer7_edit()
 		{
 			f_user=f_led_max;
 		}
+
 		if(f_user<f_led_min) //if i would set a freq grater the f min i will set the f min
 		{
 			f_user=f_led_min;
 		}
 
-		/*---------------------------------------------------------------------- QUITE SURE IT CANNOT WORK
-		 *																		 SINCE A DIVISION BETWEEN
-		 *																		 INTEGERS IS DONE, HENCE
-		 *																		 JUST THE INTEGER PART IS
-		 *																		 KEPT, THUS INTRODUCING A
-		 *																		 POSSIBLY BIG NUMERICAL
-		 *																		 ERROR. (THE SOLUTION OF
-		 *																		 THE CODE IS NOT
-		 *																		 GUARANTEED TO BE THE OPTIMAL
-		 *																		 ONE, NEITHER A SUB-OPTIMAL)
-		 */
-
-		Counter_led=(int)((f_user/f_clock)/(PSC_ex4))-1;//evaluate new counter ---------- THERE IS AN ERROR
-															//----------------------------INVERTING THE FORMULA
-
-		// Counter_led = (int) ((((double)f_clock/PSC_ex4)/f_user)-1); // New counter formula, corrected --- SOLUTION 2
+		Counter_led = (int) ((((double)f_clock/PSC_ex4)/f_user)-1);
 
 		__HAL_TIM_SET_COUNTER(&htim7,Counter_led);//set new counter
 
@@ -280,7 +252,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		 i=i+1;
 	 }else
 	 {
-		 // keyinput[i]='\0'; // End of string character    --------------------- SOLUTION 2
+		 keyinput[i]='\0';
 		 i=0;
 		 f_user = ve_char2var_int(keyinput);
 		 f_timer7_edit();
