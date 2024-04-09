@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <string.h>
 #include "SX1509_Registers.h"
+#include <math.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -128,9 +130,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		printf("\n");
 	}
 
-	if(htim->Instance == TIM7)//when timer 7 call the interupt
+	if(htim->Instance == TIM7)//when timer 7 call the interrupt
 		{
-			HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);//toggle the led
+			HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_5);//toggle the led
 		}
 }
 
@@ -138,52 +140,58 @@ char keyinput[4];
 int i=0;
 uint8_t regCol, regRow;
 
-uint8_t f_led=1;//frequency of the led actualy running
-uint8_t f_user=1;//frequency setted by the user (keypad input)
-uint8_t Counter_led;//countwr value of the timer 7 "collegato" led
+/* --------------------------------------------------------- THESE VARIABLES CANNOT BE
+ * 															 unit8_t since they need to
+ * 															 store values greater than 255
+uint8_t f_led=1; //frequency of the led actually running
+uint8_t f_user=1;//frequency set by the user (keypad input)
+uint8_t Counter_led;//counter value of the timer 7 "collegato" led
+*/
 
-long f_clock=17000000;// frequency of the micro(da modificare con e)
-uint8_t f_led_min=1;//frequency min of the led
+unsigned int f_led=1; //frequency of the led actually running
+unsigned int f_user=1;//frequency set by the user (keypad input)
+uint16_t Counter_led;//counter value of the timer 7 "collegato" led
+unsigned int f_clock=170e6;// frequency of the micro-controller
+
+int f_led_min=1;//frequency min of the led
 int f_led_max=1000;//frequency max of the led
 
 //function from char vector to int var
 int ve_char2var_int(char vector[])
 {
- int variable=0;//output
- int int_vect[sizeof(vector)];
+	int variable=0; //output
 
- for(int i=0;i<sizeof(vector);i++)// for evry char convert it to int
- {
-  int_vect[i]=(int)vector[i]-(int)'0';//int will convert the char in the ASCII code and i will subtract the 0 ASCII code
- }
+    sscanf(vector, "%d", &variable);
 
- for(int i=0;i<sizeof(vector);i++)// for each unit i mult for his unit poker and sum in variable
- {
-  variable+=int_vect[i]*pow(10,(sizeof(vector)-i));
- }
-
- return variable;
+	return variable;
 }
 
 //function timer modify‐-------------------------------------------
 void f_timer7_edit()
 {
-  if(f_led!=f_user)//ceck if f_led is changed (ponder to swap position)
-	 {
-		 if(f_user>f_led_max)//if i would set a freq grater the f max i wil set the f max
-		 {
-			 f_user=f_led_max;
-		 }
-		 if(f_user<f_led_min)//if i would set a freq grater the f min i wil set the f min
-		 {
-			 f_user=f_led_min;
-		 }
-		 Counter_led=(int)((f_user/f_clock)/(PSC_ex4))-1;//evaluate new counter
+	if(f_led!=f_user)//check if f_led is changed (ponder to swap position)
+	{
+		if(f_user>f_led_max) //if i would set a freq grater the f max i will set the f max
+		{
+			f_user=f_led_max;
+		}
 
-		 __HAL_TIM_SET_COUNTER(&htim7,Counter_led);//set new counter
+		if(f_user<f_led_min) //if i would set a freq grater the f min i will set the f min
+		{
+			f_user=f_led_min;
+		}
 
-   f_led=f_user;// set current f to requisit f
-	 }
+		Counter_led = (int) ((((double)f_clock/PSC_ex4)/f_user)-1);
+
+		__HAL_TIM_SET_COUNTER(&htim7,Counter_led);//set new counter
+
+		double actual_freq = ((double) f_clock)/((PSC_ex4)*(Counter_led+1));  //Metric for evaluation of the goodness
+																			  //of the code.
+		printf("Desired blinking freq: %d\n", f_user);
+		printf("Actual  blinking freq: %g\n", actual_freq);
+
+		f_led=f_user;// set current f to desired f
+	}
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
@@ -244,6 +252,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		 i=i+1;
 	 }else
 	 {
+		 keyinput[i]='\0';
 		 i=0;
 		 f_user = ve_char2var_int(keyinput);
 		 f_timer7_edit();
@@ -252,42 +261,19 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   }
 }
 
-/*-------------------------------------------------------------------------HOW does HAL_I2C_Mem_Read work?
- *
- * Example of line code:
- * status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_DATA_1, 1, &regCol, 1, I2C_TIMEOUT);
- *
- * status1 is a variable of type HAL_StatusTypeDef, it must be defined as all variables in C; in the end
- * it contains just an integer value, that could mean different things depending on the value itself:
- * 	-0x00U : the read was fine, no problem at all;
- * 	-0x01U : there was a not better specified error in the read;
- * 	-0x02U : the peripheral, or the I2C line, was busy, and hence the read failed;
- * 	-0x03U : the peripheral took to long time to communicate, and a timeout error occurred.
- *
- * When we call the function HAL_I2C_Mem_Read we have to pass the following:
- * 	- pointer to the structure that defines the I2C communication parameters - the & means that we pass
- * 	  the pointer - e.g. &hi2c1
- * 	- peripheral address: in our case, for the keypad the address is contained in the constant
- * 	  SX1509_I2C_ADDR2; we have to make a left-shift of 1 bit because the addresses in the I2C are composed
- * 	  by 7 bits, the 8th bits (the LSB) is used for set the communication as writ or read; such bit is
- * 	  imposed by the function itself, we just have to set it to 0. - e.g. SX1509_I2C_ADDR2 << 1.
- * 	- register address: the address of the register we want to read. - e.g. REG_KEY_DATA_1 = 0x27
- * 	- length of register address in bytes: for the keypad it is 1 byte.
- * 	- pointer to the variable where we want to store what we read from the peripheral - e.g. &regCol
- * 	- the length of the variable we are going to store in bytes: in the line above it is just 1 byte.
- * 	- the maximum time before raising the timeout error.
- *
- * */
-
-
-
-
 /* USER CODE END 0 */
 
 /**
   * @brief  The application entry point.
   * @retval int
   */
+
+/*--------------------------------------------------------------------------------------------------------
+ *
+ * 												BEGIN OF MAIN
+ *
+ * -------------------------------------------------------------------------------------------------------
+ */
 int main(void)
 {
 
@@ -463,12 +449,11 @@ int main(void)
   HAL_Delay(100);
   HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 
-  HAL_TIM_Base_Start_IT(&htim6);
-  printf("Ready\n");
-
-  //start timer7----------------------------------------------------------------------------------------
+  //start timers ----------------------------------------------------------------------------------------
   HAL_TIM_Base_Start_IT(&htim7);
+  HAL_TIM_Base_Start_IT(&htim6);
 
+  printf("Ready\n");
 
   /* USER CODE END 2 */
 
@@ -482,6 +467,13 @@ int main(void)
   }
   /* USER CODE END 3 */
 }
+
+/* --------------------------------------------------------------------------------------------------
+ *
+ * 												END OF MAIN
+ *
+ * --------------------------------------------------------------------------------------------------
+ */
 
 /**
   * @brief System Clock Configuration
