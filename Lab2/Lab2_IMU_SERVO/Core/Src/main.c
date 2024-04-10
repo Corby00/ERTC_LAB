@@ -43,6 +43,9 @@
 #define SERVO_MAX_VALUE 200
 #define SERVO_MIN_VALUE 100
 
+// Conversion
+#define RAD2DEG 57.2958
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -158,16 +161,18 @@ struct datalog
 {
 	float ax, ay,az;
 	float d_thx, d_thy, d_thz;
-	float control_tilt;//, control_pan;
-	float tilt;//, pan;
+	float robot_tilt, tilt;
+	float robot_pan, pan;
 } logger_data;
 
 
 int8_t pan = 0;
 int8_t tilt = 0;
+int8_t robot_tilt=0;
+int8_t robot_pan= 0;
+
 float angle = 0;
 
-int8_t control_tilt=0;
 
 /* USER CODE END 0 */
 
@@ -251,44 +256,43 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
 	  HAL_Delay(20);
 	  bno055_convert_double_accel_xyz_msq(&d_accel_xyz);
 	  bno055_convert_double_gyro_xyz_rps(&d_gyro_xyz);
 
-	  //ex1-----------------------------------------------------------------
-	  tilt=-asin(d_accel_xyz.y/9.81)*57.3;//measured angle
-	  //control_tilt=-tilt*100;// input value
-	  //---------------------------------------------------------------------
+	  // Exercise 1 ------------------------------------------------------------------
+	  robot_tilt=asin(d_accel_xyz.y/9.81);// input value
+	  tilt=-asin(d_accel_xyz.y/9.81)*RAD2DEG; //control action for tilt control
 
-	  //ex2-----------------------------------------------------------------
+	  // Bonus 1   -------------------------------------------------------------------
 
-	  //---------------------------------------------------------------------
+	  // Bonus 2   --------------------------------------------------------------------
+
+	  /* update pan-tilt camera */
+	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3,
+					(uint32_t)saturate((150+tilt*(50.0/45.0)), SERVO_MIN_VALUE, SERVO_MAX_VALUE)); // tilt
+	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2,
+		//			(uint32_t)saturate((150+pan*(50.0/45.0)), SERVO_MIN_VALUE, SERVO_MAX_VALUE)); // pan
 
 
-	  logger_data.control_tilt=0;
-	  logger_data.tilt=tilt;
 	  logger_data.ax = d_accel_xyz.x;
 	  logger_data.ay = d_accel_xyz.y;
 	  logger_data.az = d_accel_xyz.z;
 	  logger_data.d_thx = d_gyro_xyz.x;
 	  logger_data.d_thy = d_gyro_xyz.y;
 	  logger_data.d_thz = d_gyro_xyz.z;
+	  logger_data.robot_tilt=robot_tilt;
+	  logger_data.tilt=tilt;
+	  logger_data.robot_pan = 0;
+	  logger_data.pan = 0;
 
-	  ertc_dlog_send(&logger, &logger_data, sizeof(logger_data));
-	  ertc_dlog_update(&logger);
-
-	  /* update pan-tilt camera */
-	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3,
-					(uint32_t)saturate((150+tilt*(50.0/45.0)), SERVO_MIN_VALUE, SERVO_MAX_VALUE)); // tilt
-	//__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2,
-		//			(uint32_t)saturate((150+tilt*(50.0/45.0)), SERVO_MIN_VALUE, SERVO_MAX_VALUE)); // pan
-
-
+	  ertc_dlog_send(&logger, &logger_data, sizeof(logger_data)); //Check if someone is connected and waiting for data
+	  ertc_dlog_update(&logger); // send data
 
   }
+  /* USER CODE END WHILE */
+  /* USER CODE BEGIN 3 */
+
   /* USER CODE END 3 */
 }
 
