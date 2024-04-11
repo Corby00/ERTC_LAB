@@ -18,7 +18,7 @@
 
 struct ertc_dlog {
 	bool tx_enable;
-	uint8_t rxbuff[32], txbuff[32];
+	uint8_t rxbuff[1024], txbuff[1024];
 	UART_HandleTypeDef uart_handle;
 };
 

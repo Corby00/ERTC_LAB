@@ -164,7 +164,7 @@ int ve_char2var_int(char vector[])
 	return variable;
 }
 
-//function timer modifyâ€?-------------------------------------------
+//function timer modifyï¿½?-------------------------------------------
 void f_timer7_edit()
 {
 	if(f_led!=f_user)//check if f_led is changed (ponder to swap position)
@@ -205,39 +205,39 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	 printf("I2C communication error (%X).\n", status1);
 
 	 switch (regRow){
-	 case 254:
-		 	 regRow=0;
-		 	 break;
-	 case 253:
-	 		 regRow=1;
-	 		 break;
-	 case 251:
-	 		 regRow=2;
-	 		 break;
-	 case 247:
-	 		 regRow=3;
-	 		 break;
-	 default:
-		 printf("error row \n");
-		 break;
+		 case 254:
+			 regRow=0;
+			 break;
+		 case 253:
+			 regRow=1;
+			 break;
+		 case 251:
+			 regRow=2;
+			 break;
+		 case 247:
+			 regRow=3;
+			 break;
+		 default:
+			 printf("error row \n");
+			 break;
 	 }
 
 	 switch (regCol){
-	 case 254:
-	 		 regCol=0;
-	 		 break;
-	 case 253:
-	 		 regCol=1;
-	 	 	 break;
-	 case 251:
-	 	 	 regCol=2;
-	 		 break;
-	 case 247:
-	 	 	 regCol=3;
-	 	 	 break;
-	 default:
-	 	 printf("error column \n");
-	 	 break;
+		 case 254:
+			 regCol=0;
+			 break;
+		 case 253:
+			 regCol=1;
+			 break;
+		 case 251:
+			 regCol=2;
+			 break;
+		 case 247:
+			 regCol=3;
+			 break;
+		 default:
+			 printf("error column \n");
+			 break;
 	 }
 
 	 printf("Row: %d \n", regRow);
@@ -247,10 +247,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	 if(keypadLayout[regRow][regCol]!='#')//check if press # and if not mem the value
 	 {
 		 keyinput[i]= keypadLayout[regRow][regCol];
-		 i=i+1;
+		 i=(i+1)%4; //Index update and check whether Index exceeds the bounds (i.e. i>=4);
 	 }else
 	 {
-		 keyinput[i]='\0';
+		 if (i!=4)
+			 keyinput[i]='\0';
 		 i=0;
 		 f_user = ve_char2var_int(keyinput);
 		 f_timer7_edit();

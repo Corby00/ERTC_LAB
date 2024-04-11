@@ -45,6 +45,8 @@
 
 // Conversion
 #define RAD2DEG 57.2958
+#define G		9.81
+#define alfa 0.5
 
 /* USER CODE END PD */
 
@@ -155,6 +157,15 @@ uint32_t saturate(uint32_t val, uint32_t min, uint32_t max){
 		return val;
 }
 
+float saturateFloat(float val, float min, float max){
+	if(val<min)
+		return min;
+	else if(val>max)
+		return max;
+	else
+		return val;
+}
+
 /* declare an ertc_dlog struct */
 struct ertc_dlog logger;
 struct datalog
@@ -162,7 +173,8 @@ struct datalog
 	float ax, ay,az;
 	float d_thx, d_thy, d_thz;
 	float robot_tilt, tilt;
-	float robot_pan, pan;
+	//float robot_pan, pan;
+	float theta1, theta2;
 } logger_data;
 
 
@@ -181,7 +193,7 @@ float angle = 0;
   * @retval int
   */
 
-/*--------------------------------------------------------------------------------------------
+/*---------------------------------------------------------------------------------------------------
  *
  * 										BEGIN OF MAIN
  *
@@ -261,20 +273,28 @@ int main(void)
 	  bno055_convert_double_gyro_xyz_rps(&d_gyro_xyz);
 
 	  // Exercise 1 ------------------------------------------------------------------
-	  robot_tilt=asin(d_accel_xyz.y/9.81);// input value
-	  tilt=-asin(d_accel_xyz.y/9.81)*RAD2DEG; //control action for tilt control
+	  robot_tilt=asin(d_accel_xyz.y/G)*RAD2DEG;	      // Pitch angle of the robot in deg
+	  tilt=-asin(d_accel_xyz.y/G)*RAD2DEG;  //Control action for tilt control
 
 	  // Bonus 1   -------------------------------------------------------------------
+	  angle+=d_gyro_xyz.z*0.02*RAD2DEG;//dt isn't right because we have the delay about the sending data too
+	  pan=-angle;
 
 	  // Bonus 2   --------------------------------------------------------------------
+	  float theta1 = asin(d_accel_xyz.y/G)*RAD2DEG;
+	  float theta2 = acos(saturateFloat(-d_accel_xyz.z/G, -0.9999, 0.99999))*RAD2DEG;
+	  float theta = alfa*theta1+(1-alfa)*theta2;
+	  tilt = - theta;
+
+
 
 	  /* update pan-tilt camera */
 	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3,
 					(uint32_t)saturate((150+tilt*(50.0/45.0)), SERVO_MIN_VALUE, SERVO_MAX_VALUE)); // tilt
-	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2,
-		//			(uint32_t)saturate((150+pan*(50.0/45.0)), SERVO_MIN_VALUE, SERVO_MAX_VALUE)); // pan
+	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2,
+					(uint32_t)saturate((150+pan*(50.0/45.0)), SERVO_MIN_VALUE, SERVO_MAX_VALUE)); // pan
 
-
+      //htim8.Instance->CNT:
 	  logger_data.ax = d_accel_xyz.x;
 	  logger_data.ay = d_accel_xyz.y;
 	  logger_data.az = d_accel_xyz.z;
@@ -283,8 +303,10 @@ int main(void)
 	  logger_data.d_thz = d_gyro_xyz.z;
 	  logger_data.robot_tilt=robot_tilt;
 	  logger_data.tilt=tilt;
-	  logger_data.robot_pan = 0;
-	  logger_data.pan = 0;
+	  //logger_data.robot_pan = angle;
+	  //logger_data.pan = pan;
+	  logger_data.theta1 = theta1;
+	  logger_data.theta2 = theta2;
 
 	  ertc_dlog_send(&logger, &logger_data, sizeof(logger_data)); //Check if someone is connected and waiting for data
 	  ertc_dlog_update(&logger); // send data
