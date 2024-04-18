@@ -61,11 +61,11 @@ void Error_Handler(void);
 
 /* Private defines -----------------------------------------------------------*/
 #define TIM1_ARR_VALUE 200
+#define PSC_ex4 9599
 #define TIM8_ARR_VALUE 400
+#define Counter_ex4 9999
 #define TIM8_PSC_VALUE 959
 #define TIM1_PSC_VALUE 959
-#define PSC_ex4 17000
-#define Counter_ex4 9
 #define GPIO_OUT_SPI_CS_SDCARD_Pin GPIO_PIN_3
 #define GPIO_OUT_SPI_CS_SDCARD_GPIO_Port GPIOE
 #define GPIO_OUT_SPI_CS_LCD_Pin GPIO_PIN_4

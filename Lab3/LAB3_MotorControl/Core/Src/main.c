@@ -1,32 +1,30 @@
 /* USER CODE BEGIN Header */
 /**
- ******************************************************************************
- * @file           : main.c
- * @brief          : Main program body
- ******************************************************************************
- * @attention
- *
- * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
- * All rights reserved.</center></h2>
- *
- * This software component is licensed by ST under BSD 3-Clause license,
- * the "License"; You may not use this file except in compliance with the
- * License. You may obtain a copy of the License at:
- *                        opensource.org/licenses/BSD-3-Clause
- *
- ******************************************************************************
- */
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
+  * All rights reserved.</center></h2>
+  *
+  * This software component is licensed by ST under BSD 3-Clause license,
+  * the "License"; You may not use this file except in compliance with the
+  * License. You may obtain a copy of the License at:
+  *                        opensource.org/licenses/BSD-3-Clause
+  *
+  ******************************************************************************
+  */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdio.h>
-#include <string.h>
-#include "SX1509_Registers.h"
 #include <math.h>
-
+#include <stdbool.h>
+#include "ertc-datalogger.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -36,12 +34,14 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define HAL_TIMEOUT 100
+//#define	HAL_TIMEOUT		1
+#define TS	0.01
 
-#define I2C_TIMEOUT 200
+#define VBATT	8.0
+#define V2DUTY	((float)(TIM8_ARR_VALUE+1)/VBATT)
+#define DUTY2V	((float)VBATT/(TIM8_ARR_VALUE+1))
 
-#define SX1509_I2C_ADDR1 0x3E //	SX1509 Proxy Sensors I2C address
-#define SX1509_I2C_ADDR2 0x3F //	SX1509 Keypad I2C address
+#define RPM2RADS	2*M_PI/60
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -63,8 +63,8 @@ TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim6;
-TIM_HandleTypeDef htim7;
 TIM_HandleTypeDef htim8;
+TIM_HandleTypeDef htim9;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart5;
@@ -73,11 +73,7 @@ UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-const char keypadLayout[4][4] = {
-    {'*', '0', '#', 'D'},
-    {'7', '8', '9', 'C'},
-    {'4', '5', '6', 'B'},
-    {'1', '2', '3', 'A'}};
+struct ertc_dlog logger;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -98,168 +94,35 @@ static void MX_UART4_Init(void);
 static void MX_UART5_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM9_Init(void);
 static void MX_TIM6_Init(void);
-static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
-extern void initialise_monitor_handles(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+struct datalog {
+	float w1, w2;
+	float u1, u2;
+} data;
 
-uint8_t line_sensor;
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
+	/* Speed ctrl routine */
 	if(htim->Instance == TIM6)
 	{
-		HAL_StatusTypeDef status1;
-		status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DATA_B, 1, &line_sensor, 1, I2C_TIMEOUT);
-		if (status1 != 0 ){
-			printf("I2C communication error (%X).\n", status1);}
-		printf("line_sensor_read: ");
-		for (int i=0; i<8 ; i++){
-			if (line_sensor & 1)
-				printf("1");
-			else
-				printf("0");
-			line_sensor >>=1;
-		}
-		printf("\n");
-	}
+     	/*	Prepare data packet */
+		data.w1 = 10;
+		data.w2 += 1.085;
+		data.u1 = -3.14;
+		data.u2 = 0.555683;
 
-	if(htim->Instance == TIM7)//when timer 7 call the interrupt
-		{
-			HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_5);//toggle the led
-		}
-}
-
-char keyinput[4];
-int i=0;
-uint8_t regCol, regRow;
-
-/* --------------------------------------------------------- THESE VARIABLES CANNOT BE
- * 															 unit8_t since they need to
- * 															 store values greater than 255
-uint8_t f_led=1; //frequency of the led actually running
-uint8_t f_user=1;//frequency set by the user (keypad input)
-uint8_t Counter_led;//counter value of the timer 7 "collegato" led
-*/
-
-unsigned int f_led=1; //frequency of the led actually running
-unsigned int f_user=1;//frequency set by the user (keypad input)
-uint16_t Counter_led;//counter value of the timer 7 "collegato" led
-unsigned int f_clock=96e6;// frequency of the micro-controller
-
-int f_led_min=1;//frequency min of the led
-int f_led_max=1000;//frequency max of the led
-
-//function from char vector to int var
-int ve_char2var_int(char vector[])
-{
-	int variable=0; //output
-
-    sscanf(vector, "%d", &variable);
-
-	return variable;
-}
-
-//function timer modify�?-------------------------------------------
-void f_timer7_edit()
-{
-	if(f_led!=f_user)//check if f_led is changed (ponder to swap position)
-	{
-		if(f_user>f_led_max) //if i would set a freq grater the f max i will set the f max
-		{
-			f_user=f_led_max;
-		}
-
-		if(f_user<f_led_min) //if i would set a freq grater the f min i will set the f min
-		{
-			f_user=f_led_min;
-		}
-
-		Counter_led = (int) ((((double)f_clock/PSC_ex4)/f_user)-1);
-
-		__HAL_TIM_SET_COUNTER(&htim7,Counter_led);//set new counter
-
-		double actual_freq = ((double) f_clock)/((PSC_ex4)*(Counter_led+1));  //Metric for evaluation of the goodness
-																			  //of the code.
-		printf("Desired blinking freq: %d\n", f_user);
-		printf("Actual  blinking freq: %g\n", actual_freq);
-
-		f_led=f_user;// set current f to desired f
+		ertc_dlog_send(&logger, &data, sizeof(data));
 	}
 }
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-  printf("Interrupt on pin (%d).\n", GPIO_Pin);
-
-  /* your code here */
-  if (GPIO_Pin==16){
-	 HAL_StatusTypeDef status1, status2;
-	 status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_DATA_1, 1, &regCol, 1, I2C_TIMEOUT);
-	 status2 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_DATA_2, 1, &regRow, 1, I2C_TIMEOUT);
-	 printf("I2C communication error (%X).\n", status2);
-	 printf("I2C communication error (%X).\n", status1);
-
-	 switch (regRow){
-		 case 254:
-			 regRow=0;
-			 break;
-		 case 253:
-			 regRow=1;
-			 break;
-		 case 251:
-			 regRow=2;
-			 break;
-		 case 247:
-			 regRow=3;
-			 break;
-		 default:
-			 printf("error row \n");
-			 break;
-	 }
-
-	 switch (regCol){
-		 case 254:
-			 regCol=0;
-			 break;
-		 case 253:
-			 regCol=1;
-			 break;
-		 case 251:
-			 regCol=2;
-			 break;
-		 case 247:
-			 regCol=3;
-			 break;
-		 default:
-			 printf("error column \n");
-			 break;
-	 }
-
-	 printf("Row: %d \n", regRow);
-	 printf("Column: %d \n", regCol);
-	 printf("Keypad button: %c \n", keypadLayout[regRow][regCol]);
-
-	 if(keypadLayout[regRow][regCol]!='#')//check if press # and if not mem the value
-	 {
-		 keyinput[i]= keypadLayout[regRow][regCol];
-		 i=(i+1)%4; //Index update and check whether Index exceeds the bounds (i.e. i>=4);
-	 }else
-	 {
-		 if (i!=4)
-			 keyinput[i]='\0';
-		 i=0;
-		 f_user = ve_char2var_int(keyinput);
-		 f_timer7_edit();
-	 }
-
-  }
-}
-
 /* USER CODE END 0 */
 
 /**
@@ -268,10 +131,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   */
 int main(void)
 {
-
   /* USER CODE BEGIN 1 */
-  uint8_t data;
-  HAL_StatusTypeDef status;
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -287,7 +148,7 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-  initialise_monitor_handles();
+
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -307,144 +168,41 @@ int main(void)
   MX_UART5_Init();
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
+  MX_TIM9_Init();
   MX_TIM6_Init();
-  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
 
-  /* Disable LCD SPI SS */
+  logger.uart_handle = huart3; // for serial
+  //logger.uart_handle = huart2; // for wifi
+
+  /* Reset LCD */
   HAL_GPIO_WritePin(GPIO_OUT_SPI_CS_LCD_GPIO_Port, GPIO_OUT_SPI_CS_LCD_Pin, GPIO_PIN_SET);
 
-  /* Disable EXTI4_IRQ during SX1509 initialization */
-  HAL_NVIC_DisableIRQ(EXTI4_IRQn);
+  HAL_Delay(1000);
 
-  /* Software reset */
-  data = 0x12;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_RESET, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
+  /* Start encoders timers */
+  HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
+  HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
 
-  data = 0x34;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_RESET, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
+  /* Start servomotors PWM (avoid floating inputs to servomotors) */
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
 
-  HAL_Delay(100);
+  /* Start motor PWM */
+  __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);
+  __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);
+  __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, 0);
+  __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, 0);
 
-  /* Set KeyPad scanning engine */
+  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_4);
 
-  /* Set RegClock to 0x40 (enable internal oscillator; 2MHz freq) */
-  data = 0x40;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_CLOCK, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  /* Set Bank A RegDir to 0xF0 (IO[0:3] as out) */
-  data = 0xF0;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_DIR_A, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  /* Set Bank B RegDir to 0x0F (IO[8:11] as in) */
-  data = 0x0F;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_DIR_B, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  /* Set Bank A RegOpenDrain to 0x0F (IO[0:3] as open-drain outputs) */
-  data = 0x0F;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_OPEN_DRAIN_A, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  /* Set Bank B RegPullup to 0x0F (pull-ups enabled on inputs IO[8:11]) */
-  data = 0x0F;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_PULL_UP_B, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  /* Set Bank B RegDebounceEnable to 0x0F (enable debouncing on IO[8:11]) */
-  data = 0x0F;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_DEBOUNCE_ENABLE_B, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  /* Set RegDebounceConfig to 0x05 (16ms debounce time) */
-  data = 0x05;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_DEBOUNCE_CONFIG, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  /* Set RegKeyConfig1 to 0x7D (8s auto-sleep; 32ms scan time per row) */
-  data = 0x7D;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_CONFIG_1, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  /* Set RegKeyConfig2 to 0x1B (4 rows; 4 columns) */
-  data = 0x1B;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_CONFIG_2, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  /* Enable EXTI4_IRQ after SX1509 initialization */
-  HAL_Delay(100);
-  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
-
-  /* Disable EXTI2_IRQ during SX1509 initialization */
-  HAL_NVIC_DisableIRQ(EXTI2_IRQn);
-
-  /* Software reset */
-  data = 0x12;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_RESET, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  data = 0x34;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_RESET, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  HAL_Delay(100);
-
-  /* Set RegDirA to 0xFF (all IO of Bank A configured as inputs) */
-  data = 0xFF; // 0 = out; 1 = in
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DIR_A, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  /* Set RegDirB to 0xFF (all IO of Bank B configured as inputs) */
-  data = 0xFF; // 0 = out; 1 = in
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DIR_B, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  /* Set RegInterruptMaskA to 0x00 (all IO of Bank A will trigger an interrupt) */
-  data = 0x00;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_INTERRUPT_MASK_A, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  /* Set RegSenseHighA to 0xAA (IO[7:4] of Bank A will trigger an interrupt on falling edge) */
-  data = 0xAA;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_SENSE_HIGH_A, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  /* Set RegSenseLowA to 0xAA (IO[3:0] of Bank A will trigger an interrupt on falling edge) */
-  data = 0xAA;
-  status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_SENSE_LOW_A, 1, &data, 1, I2C_TIMEOUT);
-  if (status != HAL_OK)
-    printf("I2C communication error (%X).\n", status);
-
-  /* Enable EXTI2_IRQ after SX1509 initialization */
-  HAL_Delay(100);
-  HAL_NVIC_EnableIRQ(EXTI2_IRQn);
-
-  //start timers ----------------------------------------------------------------------------------------
-  HAL_TIM_Base_Start_IT(&htim7);
+  /* Start speed ctrl ISR */
   HAL_TIM_Base_Start_IT(&htim6);
-
-  printf("Ready\n");
 
   /* USER CODE END 2 */
 
@@ -455,6 +213,8 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  ertc_dlog_update(&logger);
+
   }
   /* USER CODE END 3 */
 }
@@ -725,9 +485,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = TIM1_PSC_VALUE;
+  htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = TIM1_ARR_VALUE;
+  htim1.Init.Period = 0;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -740,7 +500,7 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  if (HAL_TIM_OC_Init(&htim1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -751,26 +511,26 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.OCMode = TIM_OCMODE_FORCED_ACTIVE;
   sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
   sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
-  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  if (HAL_TIM_OC_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  if (HAL_TIM_OC_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  if (HAL_TIM_OC_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
+  if (HAL_TIM_OC_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
     Error_Handler();
   }
@@ -889,18 +649,18 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 65535;
+  htim3.Init.Period = TIM3_ARR_VALUE;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 0;
+  sConfig.IC1Filter = 15;
   sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC2Filter = 0;
+  sConfig.IC2Filter = 15;
   if (HAL_TIM_Encoder_Init(&htim3, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -938,18 +698,18 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = 0;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 65535;
+  htim4.Init.Period = TIM4_ARR_VALUE;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 0;
+  sConfig.IC1Filter = 15;
   sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC2Filter = 0;
+  sConfig.IC2Filter = 15;
   if (HAL_TIM_Encoder_Init(&htim4, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -1043,10 +803,10 @@ static void MX_TIM6_Init(void)
 
   /* USER CODE END TIM6_Init 1 */
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 9599;
+  htim6.Init.Prescaler = TIM6_PSC_VALUE;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 999;
-  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  htim6.Init.Period = TIM6_ARR_VALUE;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
     Error_Handler();
@@ -1060,44 +820,6 @@ static void MX_TIM6_Init(void)
   /* USER CODE BEGIN TIM6_Init 2 */
 
   /* USER CODE END TIM6_Init 2 */
-
-}
-
-/**
-  * @brief TIM7 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM7_Init(void)
-{
-
-  /* USER CODE BEGIN TIM7_Init 0 */
-
-  /* USER CODE END TIM7_Init 0 */
-
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM7_Init 1 */
-
-  /* USER CODE END TIM7_Init 1 */
-  htim7.Instance = TIM7;
-  htim7.Init.Prescaler = PSC_ex4;
-  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim7.Init.Period = Counter_ex4;
-  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM7_Init 2 */
-
-  /* USER CODE END TIM7_Init 2 */
 
 }
 
@@ -1190,6 +912,52 @@ static void MX_TIM8_Init(void)
 
   /* USER CODE END TIM8_Init 2 */
   HAL_TIM_MspPostInit(&htim8);
+
+}
+
+/**
+  * @brief TIM9 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM9_Init(void)
+{
+
+  /* USER CODE BEGIN TIM9_Init 0 */
+
+  /* USER CODE END TIM9_Init 0 */
+
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM9_Init 1 */
+
+  /* USER CODE END TIM9_Init 1 */
+  htim9.Instance = TIM9;
+  htim9.Init.Prescaler = 0;
+  htim9.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim9.Init.Period = 65535;
+  htim9.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim9.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim9) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim9, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim9, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM9_Init 2 */
+
+  /* USER CODE END TIM9_Init 2 */
+  HAL_TIM_MspPostInit(&htim9);
 
 }
 
@@ -1314,7 +1082,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
+  huart2.Init.BaudRate = 1000000;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -1376,8 +1144,6 @@ static void MX_USART3_UART_Init(void)
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOE_CLK_ENABLE();
@@ -1390,7 +1156,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOG_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, GPIO_OUT_SPI_CS_SDCARD_Pin|GPIO_OUT_SPI_CS_LCD_Pin|GPIO_PIN_5|GPIO_PIN_6, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_OUT_SPI_CS_SDCARD_Pin|GPIO_OUT_SPI_CS_LCD_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LD1_Pin|LD3_Pin|LD2_Pin, GPIO_PIN_RESET);
@@ -1398,24 +1164,20 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOG, GPIO_PIN_6, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : GPIO_OUT_SPI_CS_SDCARD_Pin GPIO_OUT_SPI_CS_LCD_Pin PE5 PE6 */
-  GPIO_InitStruct.Pin = GPIO_OUT_SPI_CS_SDCARD_Pin|GPIO_OUT_SPI_CS_LCD_Pin|GPIO_PIN_5|GPIO_PIN_6;
+  /*Configure GPIO pins : GPIO_OUT_SPI_CS_SDCARD_Pin GPIO_OUT_SPI_CS_LCD_Pin */
+  GPIO_InitStruct.Pin = GPIO_OUT_SPI_CS_SDCARD_Pin|GPIO_OUT_SPI_CS_LCD_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : GPIO_EXTI3_IMU_IRQ_Pin GPIO_EXTI8_USER_BUT1_IRQ_Pin GPIO_EXTI9_USER_BUT2_IRQ_Pin GPIO_EXTI10_BUMP1_IRQ_Pin
-                           GPIO_EXTI11_BUMP2_IRQ_Pin GPIO_EXTI12_BUMP3_IRQ_Pin GPIO_EXTI13_BUMP4_IRQ_Pin */
-  GPIO_InitStruct.Pin = GPIO_EXTI3_IMU_IRQ_Pin|GPIO_EXTI8_USER_BUT1_IRQ_Pin|GPIO_EXTI9_USER_BUT2_IRQ_Pin|GPIO_EXTI10_BUMP1_IRQ_Pin
-                          |GPIO_EXTI11_BUMP2_IRQ_Pin|GPIO_EXTI12_BUMP3_IRQ_Pin|GPIO_EXTI13_BUMP4_IRQ_Pin;
+  /*Configure GPIO pins : GPIO_EXTI2_PROXY_TOF_SENS_IRQ_Pin GPIO_EXTI3_IMU_IRQ_Pin GPIO_EXTI4_KPAD_IRQ_Pin GPIO_EXTI8_USER_BUT1_IRQ_Pin
+                           GPIO_EXTI9_USER_BUT2_IRQ_Pin GPIO_EXTI10_BUMP1_IRQ_Pin GPIO_EXTI11_BUMP2_IRQ_Pin GPIO_EXTI12_BUMP3_IRQ_Pin
+                           GPIO_EXTI13_BUMP4_IRQ_Pin */
+  GPIO_InitStruct.Pin = GPIO_EXTI2_PROXY_TOF_SENS_IRQ_Pin|GPIO_EXTI3_IMU_IRQ_Pin|GPIO_EXTI4_KPAD_IRQ_Pin|GPIO_EXTI8_USER_BUT1_IRQ_Pin
+                          |GPIO_EXTI9_USER_BUT2_IRQ_Pin|GPIO_EXTI10_BUMP1_IRQ_Pin|GPIO_EXTI11_BUMP2_IRQ_Pin|GPIO_EXTI12_BUMP3_IRQ_Pin
+                          |GPIO_EXTI13_BUMP4_IRQ_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PF4 */
-  GPIO_InitStruct.Pin = GPIO_PIN_4;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
@@ -1485,18 +1247,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF11_ETH;
   HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI4_IRQn, 1, 0);
-  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
-
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
