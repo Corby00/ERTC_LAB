@@ -35,7 +35,16 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 //#define	HAL_TIMEOUT		1
+
+#define TIM3_ARR_VALUE 3840 // assuming we are using 4X encoder mode
+#define TIM4_ARR_VALUE 3840
+
 #define TS	0.01
+
+#define Kp 1
+#define Ki 1
+
+#define V 2*M_PI/3840 /*how much radiant is in encoder step*/
 
 #define VBATT	8.0
 #define V2DUTY	((float)(TIM8_ARR_VALUE+1)/VBATT)
@@ -104,9 +113,123 @@ static void MX_TIM6_Init(void);
 /* USER CODE BEGIN 0 */
 
 struct datalog {
-	float w1, w2;
-	float u1, u2;
+	float speed1,speed2;
+	float motor1,motor2;
 } data;
+
+/*motor1*/
+float PI1 (float error){
+	float prop = Kp* error;
+	static float I1 ;
+	I1 = I1 + (TS * Ki * error);
+	return (prop + I1);
+}
+
+/*motor2*/
+float PI2 (float error){
+	float prop = Kp* error;
+	static float I2 ;
+	I2 = I2 + (TS * Ki * error);
+	return (prop + I2);
+}
+
+int32_t encoder1(void){
+
+	uint32_t TIM3_CurrentCount;
+	int32_t TIM3_DiffCount;
+	static uint32_t TIM3_PreviousCount = 0;
+	TIM3_CurrentCount = __HAL_TIM_GET_COUNTER(&htim3);
+
+	/* evaluate increment of TIM3 counter from previous count */
+	if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim3))
+	{
+		/* check for counter underflow */
+		if (TIM3_CurrentCount <= TIM3_PreviousCount)
+			TIM3_DiffCount = TIM3_CurrentCount - TIM3_PreviousCount;
+		else
+			TIM3_DiffCount = -((TIM3_ARR_VALUE+1) - TIM3_CurrentCount) - TIM3_PreviousCount;
+	}
+	else
+	{
+		/* check for counter overflow */
+		if (TIM3_CurrentCount >= TIM3_PreviousCount)
+			TIM3_DiffCount = TIM3_CurrentCount - TIM3_PreviousCount;
+		else
+			TIM3_DiffCount = ((TIM3_ARR_VALUE+1) - TIM3_PreviousCount) + TIM3_CurrentCount;
+	}
+
+	/*update of previous count*/
+	TIM3_PreviousCount = TIM3_CurrentCount;
+
+	return TIM3_DiffCount;
+
+}
+
+int32_t encoder2(void){
+
+	uint32_t TIM4_CurrentCount;
+	int32_t TIM4_DiffCount;
+	static uint32_t TIM4_PreviousCount = 0;
+	TIM4_CurrentCount = __HAL_TIM_GET_COUNTER(&htim4);
+
+	/* evaluate increment of TIM4 counter from previous count */
+	if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim4))
+	{
+		/* check for counter underflow */
+		if (TIM4_CurrentCount <= TIM4_PreviousCount)
+			TIM4_DiffCount = TIM4_CurrentCount - TIM4_PreviousCount;
+		else
+			TIM4_DiffCount = -((TIM4_ARR_VALUE+1) - TIM4_CurrentCount) - TIM4_PreviousCount;
+	}
+	else
+	{
+		/* check for counter overflow */
+		if (TIM4_CurrentCount >= TIM4_PreviousCount)
+			TIM4_DiffCount = TIM4_CurrentCount - TIM4_PreviousCount;
+		else
+			TIM4_DiffCount = ((TIM4_ARR_VALUE+1) - TIM4_PreviousCount) + TIM4_CurrentCount;
+	}
+
+	/*update of previous count*/
+	TIM4_PreviousCount = TIM4_CurrentCount;
+
+	return TIM4_DiffCount;
+
+}
+
+void motor1_PWM (int32_t duty)
+{
+	if (duty >= 0) { // rotate forward
+		// alternate between forward and coast
+		// __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, (uint32_t)duty);
+		// __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);
+
+		/*alternate between forward and brake, TIM8_ARR_VALUE is a define */
+		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, (uint32_t)TIM8_ARR_VALUE); /*max*/
+		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, TIM8_ARR_VALUE - duty);
+
+	} else { // rotate backward
+		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1,  TIM8_ARR_VALUE + duty);
+		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, (uint32_t)TIM8_ARR_VALUE);
+	}
+}
+
+void motor2_PWM (int32_t duty)
+{
+	if (duty >= 0) { // rotate forward
+		// alternate between forward and coast
+		// __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, (uint32_t)duty);
+		// __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, 0);
+
+		/*alternate between forward and brake, TIM8_ARR_VALUE is a define */
+		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, (uint32_t)TIM8_ARR_VALUE); /*max*/
+		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, TIM8_ARR_VALUE - duty);
+
+	} else { // rotate backward
+		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3,  TIM8_ARR_VALUE + duty);
+		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, (uint32_t)TIM8_ARR_VALUE);
+	}
+}
 
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -114,12 +237,22 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	/* Speed ctrl routine */
 	if(htim->Instance == TIM6)
 	{
-     	/*	Prepare data packet */
-		data.w1 = 10;
-		data.w2 += 1.085;
-		data.u1 = -3.14;
-		data.u2 = 0.555683;
+		int32_t ENC1_DiffCount = encoder1();
+		int32_t ENC2_DiffCount = encoder2();
 
+		float speed1 = ENC1_DiffCount * V *1/TS ; // [rad/s]
+		float speed2 = ENC2_DiffCount * V *1/TS ; // [rad/s]
+
+
+
+		motor1_PWM (+100);
+		motor2_PWM (+100);
+
+     	/*	Prepare data packet */
+		data.speed1 = speed1;
+		data.speed2 = speed2;
+		data.motor1 = +100;
+		data.motor2 = +100;
 		ertc_dlog_send(&logger, &data, sizeof(data));
 	}
 }

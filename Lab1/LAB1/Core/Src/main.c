@@ -117,15 +117,18 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DATA_B, 1, &line_sensor, 1, I2C_TIMEOUT);
 		if (status1 != 0 ){
 			printf("I2C communication error (%X).\n", status1);}
-		printf("line_sensor_read: ");
+		//commented to acquire data keypad (to work with both change interupt's priority)
+		/*printf("line_sensor_read: ");
 		for (int i=0; i<8 ; i++){
 			if (line_sensor & 1)
-				printf("1");
+				//printf("1");
 			else
-				printf("0");
+				//printf("0");
 			line_sensor >>=1;
 		}
-		printf("\n");
+		//printf("\n");
+
+		 */
 	}
 
 	if(htim->Instance == TIM7)//when timer 7 call the interrupt
@@ -134,7 +137,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 }
 
-char keyinput[4];
+char keyinput[5];
 int i=0;
 uint8_t regCol, regRow;
 
@@ -181,9 +184,9 @@ void f_timer7_edit()
 
 		Counter_led = (int) ((((double)f_clock/PSC_ex4)/f_user)-1);
 
-		__HAL_TIM_SET_COUNTER(&htim7,Counter_led);//set new counter
+		__HAL_TIM_SET_AUTORELOAD(&htim7,Counter_led);//set new counter
 
-		double actual_freq = ((double) f_clock)/((PSC_ex4)*(Counter_led+1));  //Metric for evaluation of the goodness
+		double actual_freq = ((double) f_clock)/((PSC_ex4)*(Counter_led+1));  //Metric for evaluation of the goodness (problem: it don't evaluate it)
 																			  //of the code.
 		printf("Desired blinking freq: %d\n", f_user);
 		printf("Actual  blinking freq: %g\n", actual_freq);
@@ -201,8 +204,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	 HAL_StatusTypeDef status1, status2;
 	 status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_DATA_1, 1, &regCol, 1, I2C_TIMEOUT);
 	 status2 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_DATA_2, 1, &regRow, 1, I2C_TIMEOUT);
-	 printf("I2C communication error (%X).\n", status2);
-	 printf("I2C communication error (%X).\n", status1);
+	 //printf("I2C communication error (%X).\n", status2);
+	 //printf("I2C communication error (%X).\n", status1);
 
 	 switch (regRow){
 		 case 254:
@@ -250,8 +253,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		 i=(i+1)%4; //Index update and check whether Index exceeds the bounds (i.e. i>=4);
 	 }else
 	 {
-		 if (i!=4)
+		 if (i!=0)
 			 keyinput[i]='\0';
+		 else
+			 keyinput[4]='\0';
 		 i=0;
 		 f_user = ve_char2var_int(keyinput);
 		 f_timer7_edit();
