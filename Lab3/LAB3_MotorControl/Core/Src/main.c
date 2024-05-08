@@ -25,6 +25,9 @@
 #include <math.h>
 #include <stdbool.h>
 #include "ertc-datalogger.h"
+#include <stdio.h>
+#include <string.h>
+#include "SX1509_Registers.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,15 +37,22 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-//#define	HAL_TIMEOUT		1
+//#define HAL_TIMEOUT 1
+
+#define I2C_TIMEOUT 200
+
+#define SX1509_I2C_ADDR1 0x3E //	SX1509 Proxy Sensors I2C address
+#define SX1509_I2C_ADDR2 0x3F //	SX1509 Keypad I2C address
 
 #define TIM3_ARR_VALUE 3840 // assuming we are using 4X encoder mode
 #define TIM4_ARR_VALUE 3840
 
 #define TS	0.01
 
-#define Kp 1
-#define Ki 1
+#define Kp 2 //0.14 * 1/RPM2RADS
+#define Ki 30 //2.14 * 1/RPM2RADS
+#define Ts5 0.21 //settling time [s]
+#define Kw 30//5/Ts5
 
 #define V 2*M_PI/3840 /*how much radiant is in encoder step*/
 
@@ -112,17 +122,60 @@ static void MX_TIM6_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+char keyinput[5];
+int i=0;
+uint8_t regCol, regRow;
+int8_t negativeFlag = 1;
+
 struct datalog {
 	float speed1,speed2;
 	float motor1,motor2;
+	int getIn;
 } data;
+
+int temp = 0;
+
+float target = 0; //[rad/s]
+
+ // KeyPad Input management
+const char keypadLayout[4][4] = {
+    {'*', '0', '#', 'D'},
+    {'7', '8', '9', 'C'},
+    {'4', '5', '6', 'B'},
+    {'1', '2', '3', 'A'}};
+
+int ve_char2var_int(char vector[])
+{
+	int variable=0; //output
+
+    sscanf(vector, "%d", &variable);
+
+	return variable;
+}
+
+float saturation(float value, float min, float max)
+{
+	if (value > max)
+		value=max;
+	else if (value < min)
+		value=min;
+	return value;
+}
 
 /*motor1*/
 float PI1 (float error){
 	float prop = Kp* error;
 	static float I1 ;
 	I1 = I1 + (TS * Ki * error);
-	return (prop + I1);
+
+	// ANTIWIND-UP
+/*
+	float toReturn = prop+I1;
+	float sat = toReturn - saturation(toReturn, -7.9, 7.9);
+	I1 -= sat * Kw * TS;
+*/
+
+	return saturation((prop + I1), -7.9, 7.9);
 }
 
 /*motor2*/
@@ -130,7 +183,15 @@ float PI2 (float error){
 	float prop = Kp* error;
 	static float I2 ;
 	I2 = I2 + (TS * Ki * error);
-	return (prop + I2);
+
+	// ANTIWIND-UP
+/*
+	float toReturn = prop+I2;
+	float sat = toReturn - saturation((prop + I2), -7.9, 7.9);
+	I2 -= sat * Kw * TS;
+*/
+
+	return saturation((prop + I2), -7.9, 7.9);
 }
 
 int32_t encoder1(void){
@@ -200,37 +261,50 @@ int32_t encoder2(void){
 void motor1_PWM (int32_t duty)
 {
 	if (duty >= 0) { // rotate forward
-		// alternate between forward and coast
-		// __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, (uint32_t)duty);
-		// __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);
 
-		/*alternate between forward and brake, TIM8_ARR_VALUE is a define */
+		/* alternate between forward and brake, TIM8_ARR_VALUE is a define */
 		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, (uint32_t)TIM8_ARR_VALUE); /*max*/
 		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, TIM8_ARR_VALUE - duty);
 
+		/* alternate between forward and coast */
+	/*	 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, (uint32_t)duty);
+		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);
+*/
 	} else { // rotate backward
+
+		/* alternate between forward and brake, TIM8_ARR_VALUE is a define */
 		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1,  TIM8_ARR_VALUE + duty);
 		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, (uint32_t)TIM8_ARR_VALUE);
-	}
+
+		/* alternate between forward and coast */
+		/* __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);
+		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, - (uint32_t)duty);
+	*/}
 }
 
 void motor2_PWM (int32_t duty)
 {
 	if (duty >= 0) { // rotate forward
-		// alternate between forward and coast
-		// __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, (uint32_t)duty);
-		// __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, 0);
 
 		/*alternate between forward and brake, TIM8_ARR_VALUE is a define */
-		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, (uint32_t)TIM8_ARR_VALUE); /*max*/
-		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, TIM8_ARR_VALUE - duty);
+		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, (uint32_t)TIM8_ARR_VALUE); /*max*/
+		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, TIM8_ARR_VALUE - duty);
 
+		/* alternate between forward and coast */
+		/* __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, (uint32_t)duty);
+		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, 0);
+*/
 	} else { // rotate backward
+
+		/* alternate between forward and brake, TIM8_ARR_VALUE is a define */
 		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3,  TIM8_ARR_VALUE + duty);
 		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, (uint32_t)TIM8_ARR_VALUE);
-	}
-}
 
+		/* alternate between forward and coast */
+		/* __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, 0);
+		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, - (uint32_t)duty);
+	*/}
+}
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -243,19 +317,109 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		float speed1 = ENC1_DiffCount * V *1/TS ; // [rad/s]
 		float speed2 = ENC2_DiffCount * V *1/TS ; // [rad/s]
 
+		float error1 = target-speed1;
+		float error2 = target-speed2;
 
+		float contAct1 = PI1(error1);
+		float contAct2 = PI2(error2);
 
-		motor1_PWM (+100);
-		motor2_PWM (+100);
+		motor1_PWM (contAct1*V2DUTY);
+		motor2_PWM (contAct2*V2DUTY);
 
      	/*	Prepare data packet */
 		data.speed1 = speed1;
 		data.speed2 = speed2;
-		data.motor1 = +100;
-		data.motor2 = +100;
+		data.motor1 = contAct1;
+		data.motor2 = contAct2;
+		data.getIn  = temp;
 		ertc_dlog_send(&logger, &data, sizeof(data));
 	}
 }
+
+// Routine for external interrupt....
+// TODO: Remains to set everything related to I2C...
+//
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+
+  //printf("Interrupt on pin (%d).\n", GPIO_Pin);
+
+	data.speed1 = 0;
+	data.speed2 = 0;
+	data.motor1 = 0;
+	data.motor2 = 0;
+	data.getIn  = GPIO_Pin;
+	ertc_dlog_send(&logger, &data, sizeof(data));
+
+  // your code here
+  if (GPIO_Pin==16){
+	 HAL_StatusTypeDef status1, status2;
+	 status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_DATA_1, 1, &regCol, 1, I2C_TIMEOUT);
+	 status2 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_DATA_2, 1, &regRow, 1, I2C_TIMEOUT);
+	 //printf("I2C communication error (%X).\n", status2);
+	 //printf("I2C communication error (%X).\n", status1);
+
+	 switch (regRow){
+		 case 254:
+			 regRow=0;
+			 break;
+		 case 253:
+			 regRow=1;
+			 break;
+		 case 251:
+			 regRow=2;
+			 break;
+		 case 247:
+			 regRow=3;
+			 break;
+		 default:
+			 //printf("error row \n");
+			 break;
+	 }
+
+	 switch (regCol){
+		 case 254:
+			 regCol=0;
+			 break;
+		 case 253:
+			 regCol=1;
+			 break;
+		 case 251:
+			 regCol=2;
+			 break;
+		 case 247:
+			 regCol=3;
+			 break;
+		 default:
+			 //printf("error column \n");
+			 break;
+	 }
+
+	 //printf("Row: %d \n", regRow);
+	 //printf("Column: %d \n", regCol);
+	 //printf("Keypad button: %c \n", keypadLayout[regRow][regCol]);
+
+	 if(keypadLayout[regRow][regCol]== '*') // Check if press *, if so, the number insered is negative.
+		 negativeFlag*=-1;
+	 else if(keypadLayout[regRow][regCol]!='#')//check if press # and if not mem the value
+	 {
+		 keyinput[i]= keypadLayout[regRow][regCol];
+		 i=(i+1)%4; //Index update and check whether Index exceeds the bounds (i.e. i>=4);
+	 }
+	 else
+	 {
+		 if (i!=0)
+			 keyinput[i]='\0';
+		 else
+			 keyinput[4]='\0';
+		 i=0;
+		 target = negativeFlag*ve_char2var_int(keyinput);
+		 negativeFlag=1;
+	 }
+  }
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -265,7 +429,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	uint8_t data;
+	HAL_StatusTypeDef status;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -311,7 +476,135 @@ int main(void)
   /* Reset LCD */
   HAL_GPIO_WritePin(GPIO_OUT_SPI_CS_LCD_GPIO_Port, GPIO_OUT_SPI_CS_LCD_Pin, GPIO_PIN_SET);
 
+  //disable EXTI4_IRQ during SX1509 initialization
+  HAL_NVIC_DisableIRQ(EXTI4_IRQn);
+
+  /* Software reset */
+    data = 0x12;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_RESET, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    data = 0x34;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_RESET, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    HAL_Delay(100);
+
+    /* Set KeyPad scanning engine */
+
+    /* Set RegClock to 0x40 (enable internal oscillator; 2MHz freq) */
+    data = 0x40;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_CLOCK, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    /* Set Bank A RegDir to 0xF0 (IO[0:3] as out) */
+    data = 0xF0;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_DIR_A, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    /* Set Bank B RegDir to 0x0F (IO[8:11] as in) */
+    data = 0x0F;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_DIR_B, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    /* Set Bank A RegOpenDrain to 0x0F (IO[0:3] as open-drain outputs) */
+    data = 0x0F;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_OPEN_DRAIN_A, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    /* Set Bank B RegPullup to 0x0F (pull-ups enabled on inputs IO[8:11]) */
+    data = 0x0F;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_PULL_UP_B, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    /* Set Bank B RegDebounceEnable to 0x0F (enable debouncing on IO[8:11]) */
+    data = 0x0F;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_DEBOUNCE_ENABLE_B, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    /* Set RegDebounceConfig to 0x05 (16ms debounce time) */
+    data = 0x05;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_DEBOUNCE_CONFIG, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    /* Set RegKeyConfig1 to 0x7D (8s auto-sleep; 32ms scan time per row) */
+    data = 0x7D;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_CONFIG_1, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    /* Set RegKeyConfig2 to 0x1B (4 rows; 4 columns) */
+    data = 0x1B;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_CONFIG_2, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    /* Enable EXTI4_IRQ after SX1509 initialization */
+    HAL_Delay(100);
+    HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+
+    /* Disable EXTI2_IRQ during SX1509 initialization */
+    HAL_NVIC_DisableIRQ(EXTI2_IRQn);
+
+    /* Software reset */
+    data = 0x12;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_RESET, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    data = 0x34;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_RESET, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    HAL_Delay(100);
+
+    /* Set RegDirA to 0xFF (all IO of Bank A configured as inputs) */
+    data = 0xFF; // 0 = out; 1 = in
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DIR_A, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    /* Set RegDirB to 0xFF (all IO of Bank B configured as inputs) */
+    data = 0xFF; // 0 = out; 1 = in
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DIR_B, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    /* Set RegInterruptMaskA to 0x00 (all IO of Bank A will trigger an interrupt) */
+    data = 0x00;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_INTERRUPT_MASK_A, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    /* Set RegSenseHighA to 0xAA (IO[7:4] of Bank A will trigger an interrupt on falling edge) */
+    data = 0xAA;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_SENSE_HIGH_A, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    /* Set RegSenseLowA to 0xAA (IO[3:0] of Bank A will trigger an interrupt on falling edge) */
+    data = 0xAA;
+    status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_SENSE_LOW_A, 1, &data, 1, I2C_TIMEOUT);
+    if (status != HAL_OK)
+      //printf("I2C communication error (%X).\n", status);
+
+    /* Enable EXTI2_IRQ after SX1509 initialization */
+    HAL_Delay(100);
+    HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+
+
   HAL_Delay(1000);
+
 
   /* Start encoders timers */
   HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
@@ -336,6 +629,9 @@ int main(void)
 
   /* Start speed ctrl ISR */
   HAL_TIM_Base_Start_IT(&htim6);
+
+  HAL_Delay(5000);
+  target=-10; //[rad/s]
 
   /* USER CODE END 2 */
 

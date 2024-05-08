@@ -24,9 +24,14 @@ Ki = 2.14; % Should work good enough... must be multiplied by rads2rpm
 % N.B. Despite we have designed the controller by emulation, still the gain
 % found does not need to be converted till the sampling time is small
 % enough. If problems raises due to the high sampling time, the best
-% solution is to discretize the plan
+% solution is to discretize the plan and design directly the digital
+% controller.
 
 %%  SYSTEM CREATION
+
+Ts = 0.01; %[s], sampling time.
+
+rpm2rads = 2*pi
 
 mu = 33.922;
 tau = 0.02;

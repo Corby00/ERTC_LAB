@@ -4,6 +4,8 @@ clear all;
 close all;
 clc;
 
+rpm2rads = 2*pi/60;
+
 %EDO = 0.1704, 0.8510
 %
 %ISA = 50, 8  (It works with reference in rad/s and does not take into
@@ -18,8 +20,8 @@ clc;
 % Kp= 0.45Ku = 0.3375
 % Ki= 0.54 Ku/Tu = 5.236753
 
-Kp = 0.14;
-Ki = 2.14; % Should work good enough... must be multiplied by rads2rpm
+Kp = 0.14 * 1/rpm2rads;
+Ki = 2.14 * 1/rpm2rads; % Should work good enough... must be multiplied by rads2rpm
 
 % N.B. Despite we have designed the controller by emulation, still the gain
 % found does not need to be converted till the sampling time is small
@@ -31,13 +33,13 @@ Ki = 2.14; % Should work good enough... must be multiplied by rads2rpm
 
 Ts = 0.01; %[s], sampling time.
 
-mu = 33.922;
+mu = 33.922 * rpm2rads;
 tau = 0.02;
 a = 0.217;
 
 s=tf('s');
 
-P = (mu/(1+a*s))*exp(-tau*s) %[It takes as input V (volts) and returns as outuput rpm]
+P = (mu/(1+a*s))*exp(-tau*s) %[It takes as input V (volts) and returns as outuput rad/s]
 
 %% Variables for PID autotuner
 
