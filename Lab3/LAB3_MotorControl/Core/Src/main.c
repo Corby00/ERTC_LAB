@@ -482,12 +482,12 @@ int main(void)
   /* Software reset */
     data = 0x12;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_RESET, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     data = 0x34;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_RESET, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     HAL_Delay(100);
@@ -497,55 +497,55 @@ int main(void)
     /* Set RegClock to 0x40 (enable internal oscillator; 2MHz freq) */
     data = 0x40;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_CLOCK, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     /* Set Bank A RegDir to 0xF0 (IO[0:3] as out) */
     data = 0xF0;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_DIR_A, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     /* Set Bank B RegDir to 0x0F (IO[8:11] as in) */
     data = 0x0F;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_DIR_B, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     /* Set Bank A RegOpenDrain to 0x0F (IO[0:3] as open-drain outputs) */
     data = 0x0F;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_OPEN_DRAIN_A, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     /* Set Bank B RegPullup to 0x0F (pull-ups enabled on inputs IO[8:11]) */
     data = 0x0F;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_PULL_UP_B, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     /* Set Bank B RegDebounceEnable to 0x0F (enable debouncing on IO[8:11]) */
     data = 0x0F;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_DEBOUNCE_ENABLE_B, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     /* Set RegDebounceConfig to 0x05 (16ms debounce time) */
     data = 0x05;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_DEBOUNCE_CONFIG, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     /* Set RegKeyConfig1 to 0x7D (8s auto-sleep; 32ms scan time per row) */
     data = 0x7D;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_CONFIG_1, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     /* Set RegKeyConfig2 to 0x1B (4 rows; 4 columns) */
     data = 0x1B;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_CONFIG_2, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     /* Enable EXTI4_IRQ after SX1509 initialization */
@@ -558,12 +558,12 @@ int main(void)
     /* Software reset */
     data = 0x12;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_RESET, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     data = 0x34;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_RESET, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     HAL_Delay(100);
@@ -571,31 +571,31 @@ int main(void)
     /* Set RegDirA to 0xFF (all IO of Bank A configured as inputs) */
     data = 0xFF; // 0 = out; 1 = in
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DIR_A, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     /* Set RegDirB to 0xFF (all IO of Bank B configured as inputs) */
     data = 0xFF; // 0 = out; 1 = in
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DIR_B, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     /* Set RegInterruptMaskA to 0x00 (all IO of Bank A will trigger an interrupt) */
     data = 0x00;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_INTERRUPT_MASK_A, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     /* Set RegSenseHighA to 0xAA (IO[7:4] of Bank A will trigger an interrupt on falling edge) */
     data = 0xAA;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_SENSE_HIGH_A, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     /* Set RegSenseLowA to 0xAA (IO[3:0] of Bank A will trigger an interrupt on falling edge) */
     data = 0xAA;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_SENSE_LOW_A, 1, &data, 1, I2C_TIMEOUT);
-    if (status != HAL_OK)
+    //if (status != HAL_OK)
       //printf("I2C communication error (%X).\n", status);
 
     /* Enable EXTI2_IRQ after SX1509 initialization */
