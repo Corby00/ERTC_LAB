@@ -1,0 +1,31 @@
+% -------------------------------------------------------------------------
+% EMBEDDED AND REAL TIME CONTROL: GROUP 4
+% Components: Azadegan, Corbioli, Fusari, Garbo
+%
+% Script for plotting the acquired data
+%--------------------------------------------------------------------------
+
+%% DATA IMPORT
+
+load("Lab2\InPresence\matlab\LabData.mat")
+
+%% PRINT
+
+% TILT CONTROL
+figure(1)
+f1.Name= 'TILT CONTROL'
+set(gcf,'defaultAxesTickLabelInterpreter','latex');
+plot(y, z, 'LineWidth', 1.25, 'Color', [65 105 225]/255)
+hold on
+plot(y_fin, z_fin,'x', 'MarkerSize', 8, 'MarkerFaceColor',[255 42 4]/255 );
+plot(y_init, z_init,'x', 'MarkerSize', 8);
+axis equal
+xlim("padded")
+ylim("padded")
+grid on
+legend('Trajectory', 'Desired Position', 'Starting Point', "latex", "Location","northeast");
+xlabel("$y$ [m]", "Interpreter","latex")
+ylabel("$z$ [m]", "Interpreter","latex")
+title("\bfseries Trajectory", "Interpreter","latex")
+set(gca, 'FontSize', 12)
+exportgraphics(gcf,'lyap_regulation_ME_trajectory.pdf','ContentType','vector')

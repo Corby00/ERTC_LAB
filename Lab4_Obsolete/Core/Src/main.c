@@ -600,7 +600,7 @@ int main(void)
 
     /* Enable EXTI2_IRQ after SX1509 initialization */
     HAL_Delay(100);
-    // HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+    HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 
 
   HAL_Delay(1000);

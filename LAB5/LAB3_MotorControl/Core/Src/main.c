@@ -37,7 +37,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-//#define HAL_TIMEOUT 1
+#define HAL_TIMEOUT 100
 
 #define I2C_TIMEOUT 200
 
@@ -61,6 +61,13 @@
 #define DUTY2V	((float)VBATT/(TIM8_ARR_VALUE+1))
 
 #define RPM2RADS	2*M_PI/60
+
+#define V_max 0.6 //[m/s] maximum linear speed
+#define P_gainmax 18   //
+#define r 0.034 //[m] wheel radius
+#define D 0.165 //[m] wheel distance
+#define H 0.085 //[m] distance between line sensor and vehicle's center
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -116,42 +123,26 @@ static void MX_USART2_UART_Init(void);
 static void MX_TIM9_Init(void);
 static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
-
+extern void initialise_monitor_handles(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-char keyinput[5];
-int i=0;
-uint8_t regCol, regRow;
-int8_t negativeFlag = 1;
-
 struct datalog {
 	float speed1,speed2;
 	float motor1,motor2;
-	int getIn;
+	float lineRead;
 } data;
 
-int temp = 0;
+uint8_t line_sensor=0;
+float w[8] = {0.028, 0.02, 0.012, 0.004, -0.004, -0.012, -0.02, -0.028}; //Computation done off-line following the formula.
 
-float target = 0; //[rad/s]
+float target = 6; //[rad/s]
 
- // KeyPad Input management
-const char keypadLayout[4][4] = {
-    {'*', '0', '#', 'D'},
-    {'7', '8', '9', 'C'},
-    {'4', '5', '6', 'B'},
-    {'1', '2', '3', 'A'}};
-
-int ve_char2var_int(char vector[])
-{
-	int variable=0; //output
-
-    sscanf(vector, "%d", &variable);
-
-	return variable;
-}
+bool changedV_1 = false;  // boolean flag for avoiding changing too much V value
+float V_cont = V_max;
+float P_gain = P_gainmax;
 
 float saturation(float value, float min, float max)
 {
@@ -169,11 +160,11 @@ float PI1 (float error){
 	I1 = I1 + (TS * Ki * error);
 
 	// ANTIWIND-UP
-/*
+
 	float toReturn = prop+I1;
 	float sat = toReturn - saturation(toReturn, -7.9, 7.9);
 	I1 -= sat * Kw * TS;
-*/
+
 
 	return saturation((prop + I1), -7.9, 7.9);
 }
@@ -185,11 +176,10 @@ float PI2 (float error){
 	I2 = I2 + (TS * Ki * error);
 
 	// ANTIWIND-UP
-/*
+
 	float toReturn = prop+I2;
 	float sat = toReturn - saturation((prop + I2), -7.9, 7.9);
 	I2 -= sat * Kw * TS;
-*/
 
 	return saturation((prop + I2), -7.9, 7.9);
 }
@@ -263,23 +253,23 @@ void motor1_PWM (int32_t duty)
 	if (duty >= 0) { // rotate forward
 
 		/* alternate between forward and brake, TIM8_ARR_VALUE is a define */
-		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, (uint32_t)TIM8_ARR_VALUE); /*max*/
-		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, TIM8_ARR_VALUE - duty);
+		 //__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, (uint32_t)TIM8_ARR_VALUE); /*max*/
+		 //__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, TIM8_ARR_VALUE - duty);
 
 		/* alternate between forward and coast */
-	/*	 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, (uint32_t)duty);
+		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, (uint32_t)duty);
 		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);
-*/
+
 	} else { // rotate backward
 
 		/* alternate between forward and brake, TIM8_ARR_VALUE is a define */
-		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1,  TIM8_ARR_VALUE + duty);
-		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, (uint32_t)TIM8_ARR_VALUE);
+		//__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1,  TIM8_ARR_VALUE + duty);
+		//__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, (uint32_t)TIM8_ARR_VALUE);
 
 		/* alternate between forward and coast */
-		/* __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);
+		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);
 		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, - (uint32_t)duty);
-	*/}
+	}
 }
 
 void motor2_PWM (int32_t duty)
@@ -287,23 +277,41 @@ void motor2_PWM (int32_t duty)
 	if (duty >= 0) { // rotate forward
 
 		/*alternate between forward and brake, TIM8_ARR_VALUE is a define */
-		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, (uint32_t)TIM8_ARR_VALUE); /*max*/
-		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, TIM8_ARR_VALUE - duty);
+		//__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, (uint32_t)TIM8_ARR_VALUE); /*max*/
+		//__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, TIM8_ARR_VALUE - duty);
 
 		/* alternate between forward and coast */
-		/* __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, (uint32_t)duty);
+		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, (uint32_t)duty);
 		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, 0);
-*/
+
 	} else { // rotate backward
 
 		/* alternate between forward and brake, TIM8_ARR_VALUE is a define */
-		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3,  TIM8_ARR_VALUE + duty);
-		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, (uint32_t)TIM8_ARR_VALUE);
+		//__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3,  TIM8_ARR_VALUE + duty);
+		//__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, (uint32_t)TIM8_ARR_VALUE);
 
 		/* alternate between forward and coast */
-		/* __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, 0);
+		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_3, 0);
 		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_4, - (uint32_t)duty);
-	*/}
+	}
+}
+
+float line_error(uint8_t sensor)
+{
+	float sum_Num=0;
+	float sum_Den=0;
+
+	for(int i=0; i<8; i++)
+	{
+		int value= (sensor&1);
+
+		sum_Den += value;
+		sum_Num += w[i]*value;
+
+		sensor >>=1; //Shift right
+	}
+
+	return sum_Num/sum_Den;
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -311,14 +319,59 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	/* Speed ctrl routine */
 	if(htim->Instance == TIM6)
 	{
+		// LINE SENSOR READING
+		HAL_StatusTypeDef status1;
+		status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DATA_B, 1, &line_sensor, 1, I2C_TIMEOUT);
+
+		float lineErr = line_error(line_sensor);
+
+		// DUMB CONTROLLER: FIRST APPROACH
+
+		//float speedVar = lineErr*450; //TODO: To tune
+		//float error1 = saturation((target+speedVar), 0, 25)- speed1;
+		//float error2 = saturation((target-speedVar), 0, 25)- speed2;
+
+		// YAW CONTROLLER FROM HANDOUTS
+
+		float psi_err = atan(lineErr/H);
+
+		float psi_dot = psi_err*P_gain;
+
+		// Adaptive part for V_cont
+
+		if (changedV_1)
+		{
+			if (abs(psi_err) < 0.01)  // TODO: Tune threshold
+			{
+				V_cont =  V_max * 1 ;
+			}
+			else if (abs(psi_err) < 0.02)
+			{
+				V_cont = V_max * (-50*psi_err + 1.50);
+				P_gain = P_gainmax + 8;
+			}
+			else // Big error
+			{
+				V_cont = V_max * 0.50;
+				P_gain = P_gainmax + 30;
+			}
+			changedV_1 = true;
+		}
+		else
+			changedV_1 = false;
+
+		float Vr = V_cont + psi_dot*D/2;
+		float Vl = V_cont - psi_dot*D/2;
+
+
 		int32_t ENC1_DiffCount = encoder1();
 		int32_t ENC2_DiffCount = encoder2();
 
 		float speed1 = ENC1_DiffCount * V *1/TS ; // [rad/s]
 		float speed2 = ENC2_DiffCount * V *1/TS ; // [rad/s]
 
-		float error1 = target-speed1;
-		float error2 = target-speed2;
+		float error1 = saturation((Vr/r), 0, 100) - speed1;
+		float error2 = saturation((Vl/r), 0, 100) - speed2;
 
 		float contAct1 = PI1(error1);
 		float contAct2 = PI2(error2);
@@ -331,93 +384,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		data.speed2 = speed2;
 		data.motor1 = contAct1;
 		data.motor2 = contAct2;
-		data.getIn  = temp;
+		data.lineRead  = lineErr;
+		ertc_dlog_update(&logger);
 		ertc_dlog_send(&logger, &data, sizeof(data));
 	}
-}
-
-// Routine for external interrupt....
-// TODO: Remains to set everything related to I2C...
-//
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-
-  //printf("Interrupt on pin (%d).\n", GPIO_Pin);
-
-	data.speed1 = 0;
-	data.speed2 = 0;
-	data.motor1 = 0;
-	data.motor2 = 0;
-	data.getIn  = GPIO_Pin;
-	ertc_dlog_send(&logger, &data, sizeof(data));
-
-  // your code here
-  if (GPIO_Pin==16){
-	 HAL_StatusTypeDef status1, status2;
-	 status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_DATA_1, 1, &regCol, 1, I2C_TIMEOUT);
-	 status2 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_KEY_DATA_2, 1, &regRow, 1, I2C_TIMEOUT);
-	 //printf("I2C communication error (%X).\n", status2);
-	 //printf("I2C communication error (%X).\n", status1);
-
-	 switch (regRow){
-		 case 254:
-			 regRow=0;
-			 break;
-		 case 253:
-			 regRow=1;
-			 break;
-		 case 251:
-			 regRow=2;
-			 break;
-		 case 247:
-			 regRow=3;
-			 break;
-		 default:
-			 //printf("error row \n");
-			 break;
-	 }
-
-	 switch (regCol){
-		 case 254:
-			 regCol=0;
-			 break;
-		 case 253:
-			 regCol=1;
-			 break;
-		 case 251:
-			 regCol=2;
-			 break;
-		 case 247:
-			 regCol=3;
-			 break;
-		 default:
-			 //printf("error column \n");
-			 break;
-	 }
-
-	 //printf("Row: %d \n", regRow);
-	 //printf("Column: %d \n", regCol);
-	 //printf("Keypad button: %c \n", keypadLayout[regRow][regCol]);
-
-	 if(keypadLayout[regRow][regCol]== '*') // Check if press *, if so, the number insered is negative.
-		 negativeFlag*=-1;
-	 else if(keypadLayout[regRow][regCol]!='#')//check if press # and if not mem the value
-	 {
-		 keyinput[i]= keypadLayout[regRow][regCol];
-		 i=(i+1)%4; //Index update and check whether Index exceeds the bounds (i.e. i>=4);
-	 }
-	 else
-	 {
-		 if (i!=0)
-			 keyinput[i]='\0';
-		 else
-			 keyinput[4]='\0';
-		 i=0;
-		 target = negativeFlag*ve_char2var_int(keyinput);
-		 negativeFlag=1;
-	 }
-  }
 }
 
 /* USER CODE END 0 */
@@ -470,8 +440,8 @@ int main(void)
   MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
 
-  logger.uart_handle = huart3; // for serial
-  //logger.uart_handle = huart2; // for wifi
+  //logger.uart_handle = huart3; // for serial
+  logger.uart_handle = huart2; // for wifi
 
   /* Reset LCD */
   HAL_GPIO_WritePin(GPIO_OUT_SPI_CS_LCD_GPIO_Port, GPIO_OUT_SPI_CS_LCD_Pin, GPIO_PIN_SET);
@@ -482,7 +452,7 @@ int main(void)
   /* Software reset */
     data = 0x12;
     status = HAL_I2C_Mem_Write(&hi2c1, SX1509_I2C_ADDR2 << 1, REG_RESET, 1, &data, 1, I2C_TIMEOUT);
-    //if (status != HAL_OK)
+    //if (status != HAL_OK)ssh
       //printf("I2C communication error (%X).\n", status);
 
     data = 0x34;
@@ -600,7 +570,7 @@ int main(void)
 
     /* Enable EXTI2_IRQ after SX1509 initialization */
     HAL_Delay(100);
-    // HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+    //HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 
 
   HAL_Delay(1000);
@@ -630,8 +600,8 @@ int main(void)
   /* Start speed ctrl ISR */
   HAL_TIM_Base_Start_IT(&htim6);
 
-  HAL_Delay(5000);
-  target=-10; //[rad/s]
+ // HAL_Delay(5000);
+  //target=6; //[rad/s]
 
   /* USER CODE END 2 */
 
@@ -642,7 +612,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  ertc_dlog_update(&logger);
 
   }
   /* USER CODE END 3 */
