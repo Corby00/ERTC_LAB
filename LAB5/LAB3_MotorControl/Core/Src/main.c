@@ -67,6 +67,7 @@
 #define r 0.034 //[m] wheel radius
 #define D 0.165 //[m] wheel distance
 #define H 0.085 //[m] distance between line sensor and vehicle's center
+#define max_iter 100
 
 /* USER CODE END PD */
 
@@ -131,7 +132,7 @@ extern void initialise_monitor_handles(void);
 
 struct datalog {
 	float speed1,speed2;
-	float motor1,motor2;
+	//float motor1,motor2;
 	float lineRead;
 } data;
 
@@ -143,6 +144,20 @@ float target = 6; //[rad/s]
 bool changedV_1 = false;  // boolean flag for avoiding changing too much V value
 float V_cont = V_max;
 float P_gain = P_gainmax;
+
+float contAct1 = 0;
+float contAct2 = 0;
+float lineErr =0;
+float psi_err =0;
+float psi_dot =0;
+float Vr =0;
+float Vl =0;
+float speed1 =0;
+float speed2 =0;
+float error1 =0;
+float error2 =0;
+int count_iter = max_iter;
+int i=0;
 
 float saturation(float value, float min, float max)
 {
@@ -319,62 +334,74 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	/* Speed ctrl routine */
 	if(htim->Instance == TIM6)
 	{
+
 		// LINE SENSOR READING
 		HAL_StatusTypeDef status1;
 		status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DATA_B, 1, &line_sensor, 1, I2C_TIMEOUT);
 
-		float lineErr = line_error(line_sensor);
-
-		// DUMB CONTROLLER: FIRST APPROACH
-
-		//float speedVar = lineErr*450; //TODO: To tune
-		//float error1 = saturation((target+speedVar), 0, 25)- speed1;
-		//float error2 = saturation((target-speedVar), 0, 25)- speed2;
-
-		// YAW CONTROLLER FROM HANDOUTS
-
-		float psi_err = atan(lineErr/H);
-
-		float psi_dot = psi_err*P_gain;
-
-		// Adaptive part for V_cont
-
-		if (changedV_1)
+		if (line_sensor != 0 || count_iter==0 )
 		{
-			if (abs(psi_err) < 0.01)  // TODO: Tune threshold
+			count_iter = max_iter;
+			lineErr = line_error(line_sensor);
+
+			// DUMB CONTROLLER: FIRST APPROACH
+
+			//float speedVar = lineErr*450; //TODO: To tune
+			//float error1 = saturation((target+speedVar), 0, 25)- speed1;
+			//float error2 = saturation((target-speedVar), 0, 25)- speed2;
+
+			// YAW CONTROLLER FROM HANDOUTS
+
+			psi_err = atan(lineErr/H);
+
+			psi_dot = psi_err*P_gain;
+
+			// Adaptive part for V_cont
+
+			if (changedV_1)
 			{
-				V_cont =  V_max * 1 ;
+				if (abs(psi_err) < 0.01)  // TODO: Tune threshold
+				{
+					V_cont =  V_max * (1.2+i*0.1) ;
+					P_gain = P_gainmax;
+					i++;
+				}
+				else if (abs(psi_err) < 0.02)
+				{
+					i=0;
+					V_cont = V_max * (-40*psi_err + 1.40);
+					P_gain = P_gainmax + 16;
+				}
+				else // Big error
+				{
+					i=0;
+					V_cont = V_max * 0.60;
+					P_gain = P_gainmax + 36;
+				}
+				changedV_1 = true;
 			}
-			else if (abs(psi_err) < 0.02)
-			{
-				V_cont = V_max * (-50*psi_err + 1.50);
-				P_gain = P_gainmax + 8;
-			}
-			else // Big error
-			{
-				V_cont = V_max * 0.50;
-				P_gain = P_gainmax + 30;
-			}
-			changedV_1 = true;
+			else
+				changedV_1 = false;
+
+			Vr = V_cont + psi_dot*D/2;
+			Vl = V_cont - psi_dot*D/2;
+
+
+			int32_t ENC1_DiffCount = encoder1();
+			int32_t ENC2_DiffCount = encoder2();
+
+			speed1 = ENC1_DiffCount * V *1/TS ; // [rad/s]
+			speed2 = ENC2_DiffCount * V *1/TS ; // [rad/s]
+
+			error1 = saturation((Vr/r), 0, 100) - speed1;
+			error2 = saturation((Vl/r), 0, 100) - speed2;
+
+			contAct1 = PI1(error1);
+			contAct2 = PI2(error2);
+
 		}
 		else
-			changedV_1 = false;
-
-		float Vr = V_cont + psi_dot*D/2;
-		float Vl = V_cont - psi_dot*D/2;
-
-
-		int32_t ENC1_DiffCount = encoder1();
-		int32_t ENC2_DiffCount = encoder2();
-
-		float speed1 = ENC1_DiffCount * V *1/TS ; // [rad/s]
-		float speed2 = ENC2_DiffCount * V *1/TS ; // [rad/s]
-
-		float error1 = saturation((Vr/r), 0, 100) - speed1;
-		float error2 = saturation((Vl/r), 0, 100) - speed2;
-
-		float contAct1 = PI1(error1);
-		float contAct2 = PI2(error2);
+			count_iter -= 1;
 
 		motor1_PWM (contAct1*V2DUTY);
 		motor2_PWM (contAct2*V2DUTY);
@@ -382,8 +409,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
      	/*	Prepare data packet */
 		data.speed1 = speed1;
 		data.speed2 = speed2;
-		data.motor1 = contAct1;
-		data.motor2 = contAct2;
+		//data.motor1 = contAct1;
+		//data.motor2 = contAct2;
 		data.lineRead  = lineErr;
 		ertc_dlog_update(&logger);
 		ertc_dlog_send(&logger, &data, sizeof(data));

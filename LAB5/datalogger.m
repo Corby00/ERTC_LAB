@@ -20,7 +20,7 @@ disp(seriallist);
 % and eventually change it.
 %data = serial_datalog('COM4' , {'1*single','1*single', '2*single', '1*single'}, 'baudrate', 115200, 'buffersize', 5000)
 
-data = udp_datalog('147.162.118.147', 9090, {'1*single','1*single', '2*single', '1*single'}, 'buffersize', 5000, 'plotrefreshratio', 10) %port = 9090
+data = udp_datalog('147.162.118.147', 9090, {'1*single','1*single', '1*single'}, 'buffersize', 100000, 'plotrefreshratio', 10) %port = 9090
 
 % 	The data acquired are respectively:
 % 		motor1 speed [rad/s]
@@ -31,8 +31,8 @@ data = udp_datalog('147.162.118.147', 9090, {'1*single','1*single', '2*single', 
 
 
 % save data
-savename = 'LAB4_autocross_profContr_FC_wAW_06speed_adaptiveCont';
-%savename = 'LAB_skipad_profContr_FC_wAW_06speed_adaptiveCont';
+savename = 'LAB4_autocross_profContr_FC_wAW_06speed_adaptiveCont_record';
+%savename = 'LAB_skipad_profContr_FC_wAW_06speed_adaptiveCont_record';
 save(savename);
 
 % On 'LAB_skipad_profContr_wAntiWindUp', from circa 30s to 51s a lap;
@@ -40,7 +40,7 @@ save(savename);
 % LAB_skipad_profContr_FC_wAntiWindUp from 25s to 41s a lap;
 % 'LAB4_autocross_profContr_FC_wAntiWindUp'from 18s to 38-40s;
 % 'LAB4_autocross_profContr_FC_wAW_04speed' from 37s to 55s;
-% 'LAB_skipad_profContr_FC_wAW_04speed' from 
+% 'LAB_skipad_profContr_FC_wAW_06speed_adaptiveCont_record' from 10 to 19.5
 
 
 %% PLOT VISUALISATION

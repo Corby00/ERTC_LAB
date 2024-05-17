@@ -2,7 +2,7 @@
 % EMBEDDED AND REAL TIME CONTROL: GROUP 4
 % Components: Azadegan, Corbioli, Fusari, Garbo
 %
-% Script for plotting the acquired data
+% Script for plotting the acquired data on LAB2
 %--------------------------------------------------------------------------
 
 %% DATA IMPORT
@@ -13,11 +13,159 @@ clc;
 
 load("Lab2\InPresence\matlab\LabData.mat");
 
+LabData = data;
+
 time = data.time;
 accelerometer = data.out{1,1};
 gyroscope = data.out{2,1};
 tilt = data.out{3,1};
 %pan = data.out{4,1};
+
+% ALL DATA PLOT
+
+f1 = figure(1);
+f1.Name= 'LabData';
+
+subplot(411);
+plot(time, accelerometer);
+xlabel("time [s]");
+ylabel("Accelerations [m/s]");
+grid on;
+
+subplot(412);
+plot(time, gyroscope);
+xlabel("time [s]");
+ylabel("Gyroscope [m/s]");
+grid on;
+
+subplot(413);
+hold on;
+plot(time, tilt);
+xlabel("time [s]");
+ylabel("Control action [V]");
+legend('Robot Angle', 'ControlAction');
+grid on;
+
+mean(tilt(1,:))
+
+%---------------------------------------------------------------------------
+
+
+load("Lab2\InPresence\matlab\LabData2.mat");
+LabData2 = data;
+
+time = data.time;
+accelerometer = data.out{1,1};
+gyroscope = data.out{2,1};
+tilt = data.out{3,1};
+pan = data.out{4,1};
+
+f2 = figure(2);
+f2.Name= 'LabData2';
+
+subplot(411);
+plot(time, accelerometer);
+xlabel("time [s]");
+ylabel("Accelerations [m/s]");
+grid on;
+
+subplot(412);
+plot(time, gyroscope);
+xlabel("time [s]");
+ylabel("Gyroscope [m/s]");
+grid on;
+
+subplot(413);
+hold on;
+plot(time, tilt);
+xlabel("time [s]");
+ylabel("Tilt angle");
+legend('Robot Angle', 'ControlAction');
+grid on;
+
+subplot(414);
+hold on;
+plot(time, pan);
+xlabel("time [s]");
+ylabel("Pan Angle");
+legend('RObot Angle', 'ControlAction');
+grid on;
+
+%---------------------------------------------------------------------------
+
+load("Lab2\InPresence\matlab\LabDatashoot3.mat");
+LabData3 = data;
+
+time = data.time;
+accelerometer = data.out{1,1};
+gyroscope = data.out{2,1};
+tilt = data.out{3,1};
+pan = data.out{4,1};
+
+f3 = figure(3);
+f3.Name= 'LabData3';
+
+subplot(411);
+plot(time, accelerometer);
+xlabel("time [s]");
+ylabel("Accelerations [m/s]");
+grid on;
+
+subplot(412);
+plot(time, gyroscope);
+xlabel("time [s]");
+ylabel("Gyroscope [m/s]");
+grid on;
+
+subplot(413);
+hold on;
+plot(time, tilt);
+xlabel("time [s]");
+ylabel("Tilt angle");
+legend('Robot Angle', 'ControlAction');
+grid on;
+
+subplot(414);
+hold on;
+plot(time, pan);
+xlabel("time [s]");
+ylabel("Pan Angle");
+legend('RObot Angle', 'ControlAction');
+grid on;
+
+%---------------------------------------------------------------------------
+
+load("Lab2\InPresence\matlab\ex1_04102024.mat");
+LabData4 = data;
+
+time = data.time;
+accelerometer = data.out{1,1};
+gyroscope = data.out{2,1};
+tilt = data.out{3,1};
+%pan = data.out{4,1};
+
+f4 = figure(4);
+f4.Name= 'ex1_04102024';
+
+subplot(411);
+plot(time, accelerometer);
+xlabel("time [s]");
+ylabel("Accelerations [m/s]");
+grid on;
+
+subplot(412);
+plot(time, gyroscope);
+xlabel("time [s]");
+ylabel("Gyroscope [m/s]");
+grid on;
+
+subplot(413);
+hold on;
+plot(time, tilt);
+xlabel("time [s]");
+ylabel("Tilt angle");
+legend('Robot Angle', 'ControlAction');
+grid on;
 
 %% PRINT
 
