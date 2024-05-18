@@ -1,0 +1,9 @@
+% -------------------------------------------------------------------------
+% EMBEDDED AND REAL TIME CONTROL: GROUP 5
+% Components: Azadegan, Corbioli, Fusari, Garbo
+%
+% Script for creating graphs of dependence of adaptive controller speed
+% gains to error e_SL.
+%--------------------------------------------------------------------------
+
+e_SL

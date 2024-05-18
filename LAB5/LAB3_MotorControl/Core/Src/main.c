@@ -141,7 +141,7 @@ float w[8] = {0.028, 0.02, 0.012, 0.004, -0.004, -0.012, -0.02, -0.028}; //Compu
 
 float target = 6; //[rad/s]
 
-bool changedV_1 = false;  // boolean flag for avoiding changing too much V value
+bool changedV = false;  // boolean flag for avoiding changing too much V value
 float V_cont = V_max;
 float P_gain = P_gainmax;
 
@@ -358,7 +358,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 			// Adaptive part for V_cont
 
-			if (changedV_1)
+			if (changedV)
 			{
 				if (abs(psi_err) < 0.01)  // TODO: Tune threshold
 				{
@@ -378,10 +378,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					V_cont = V_max * 0.60;
 					P_gain = P_gainmax + 36;
 				}
-				changedV_1 = true;
+				changedV = true;
 			}
 			else
-				changedV_1 = false;
+				changedV = false;
 
 			Vr = V_cont + psi_dot*D/2;
 			Vl = V_cont - psi_dot*D/2;
@@ -627,7 +627,7 @@ int main(void)
   /* Start speed ctrl ISR */
   HAL_TIM_Base_Start_IT(&htim6);
 
- // HAL_Delay(5000);
+  // HAL_Delay(5000);
   //target=6; //[rad/s]
 
   /* USER CODE END 2 */
