@@ -141,7 +141,7 @@ float w[8] = {0.028, 0.02, 0.012, 0.004, -0.004, -0.012, -0.02, -0.028}; //Compu
 
 float target = 6; //[rad/s]
 
-bool changedV = false;  // boolean flag for avoiding changing too much V value
+bool changedV = false;  //Boolean flag for changing V at half-frequency of the controller frequency
 float V_cont = V_max;
 float P_gain = P_gainmax;
 
@@ -360,7 +360,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 			if (changedV)
 			{
-				if (abs(psi_err) < 0.01)  // TODO: Tune threshold
+				if (abs(psi_err) < 0.01)
 				{
 					V_cont =  V_max * (1.2+i*0.1) ;
 					P_gain = P_gainmax;
