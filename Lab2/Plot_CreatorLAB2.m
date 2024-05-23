@@ -11,7 +11,7 @@ close all;
 clear all;
 clc;
 
-load("Lab2\InPresence\matlab\LabData.mat");
+load("InPresence\matlab\LabData.mat");
 
 LabData = data;
 
@@ -51,7 +51,7 @@ mean(tilt(1,:))
 %---------------------------------------------------------------------------
 
 
-load("Lab2\InPresence\matlab\LabData2.mat");
+load("InPresence\matlab\LabData2.mat");
 LabData2 = data;
 
 time = data.time;
@@ -93,7 +93,7 @@ grid on;
 
 %---------------------------------------------------------------------------
 
-load("Lab2\InPresence\matlab\LabDatashoot3.mat");
+load("InPresence\matlab\LabDatashoot3.mat");
 LabData3 = data;
 
 time = data.time;
@@ -135,7 +135,7 @@ grid on;
 
 %---------------------------------------------------------------------------
 
-load("Lab2\InPresence\matlab\ex1_04102024.mat");
+load("InPresence\matlab\ex1_04102024.mat");
 LabData4 = data;
 
 time = data.time;

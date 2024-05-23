@@ -14,9 +14,9 @@ clc;
 
 timeStep = 0.01;
 
-ToRawDataPlot = true;       % Wether to plot raw data figures or not.
-ToReportPlot = false;        % Wether to plot report figures or not.
-Toprint = false;            % Wether to print report figures or not.
+ToRawDataPlot = false;       % Wether to plot raw data figures or not.
+ToReportPlot = true;        % Wether to plot report figures or not.
+Toprint = true;            % Wether to print report figures or not.
 
 
 load("LABData\LAB4_autocross1.mat");
@@ -494,6 +494,98 @@ end
 % Note: When creating a figure, in order to avoid anypossible errror of
 % rewriting previously created figures, all the plots for the report has
 % number higher than 1000.
+
+%--------------------------------------------------------------------------
+% AUTOCROSS SILLY CONTROLLER
+%--------------------------------------------------------------------------
+
+f1010 = figure(1010);
+f1010.WindowState = 'maximized';
+pause(1);
+f1010.Name = 'LinearController'; % It is also the name for saving the plot.
+
+set(gcf,'defaultAxesTickLabelInterpreter','latex');
+
+data = Autocross1;
+
+time = data.time;
+
+% Filtering the data for time included in [minTime; maxTime]
+minTime = 0;
+maxTime = 35;
+lapStartTime=2;
+lapEndTime =29.7;
+
+index = find(time>minTime-timeStep & time<maxTime+timeStep);
+
+time = time(index);
+motor1Speed = data.out{1,1} (index);
+motor2Speed = data.out{2,1}(index);
+ControlAction = data.out{3,1}(:, index);
+Error = data.out{4,1} (index);
+
+if (ToReportPlot | Toprint)
+	subplot(411);
+	plot(time, motor1Speed, 'LineWidth', 1.15);
+	xlabel("Time $t \, [s]$",  "Interpreter","latex");
+	ylabel("Motor 1 Speed $[rad/s]$", "Interpreter","latex");
+	xlim('tight');
+	ylim([-1;15]);
+	grid on;
+	grid minor;
+	hold on;
+	xline(lapStartTime, '--k', 'LineWidth', 1.15);
+	xline(lapEndTime, '--k', 'LineWidth', 1.15);
+	set(gca, 'FontSize', 10)
+
+	subplot(412);
+	plot(time, motor2Speed, 'LineWidth', 1.15);
+	xlabel("Time $t \, [s]$",  "Interpreter","latex");
+	ylabel("Motor 2 Speed $[rad/s]$", "Interpreter","latex");
+	grid on;
+	grid minor;
+	xlim('tight');
+	ylim([-1;15]);
+	hold on;
+	xline(lapStartTime, '--k', 'LineWidth', 1.15);
+	xline(lapEndTime, '--k', 'LineWidth', 1.15);
+	set(gca, 'FontSize', 10)
+
+	subplot(413);
+	hold on;
+	plot(time, ControlAction, 'LineWidth', 1.15);
+	xlabel("Time $t \, [s]$",  "Interpreter","latex");
+	ylabel("Control Action $[V]$", "Interpreter","latex");
+	hold on;
+	xline(lapStartTime, '--k', 'LineWidth', 1.15);
+	xline(lapEndTime, '--k', 'LineWidth', 1.15);
+	legend('Motor 1', 'Motor 2', "Interpreter","latex", "Location","best");
+	grid on;
+	set(gca, 'FontSize', 10)
+	xlim('tight');
+
+	subplot(414);
+	hold on;
+	plot(time, Error, 'LineWidth', 1.15);
+	xlabel("Time $t \, [s]$",  "Interpreter","latex");
+	ylabel("Error $e_{SL}$", "Interpreter","latex");
+	grid on;	
+	ylim([-0.03;0.03]);
+	xlim('tight');
+	hold on;
+	xline(lapStartTime, '--k', 'LineWidth', 1.15);
+	xline(lapEndTime, '--k', 'LineWidth', 1.15);
+	set(gca, 'FontSize', 10)
+
+
+	%sgtitle("\bfseries Tilt Angles", "Interpreter","latex") % Title for
+	%the whole figure.
+end
+
+if (Toprint)
+	plotName = ".\PlotOutput\" + f1010.Name + ".pdf";
+	exportgraphics(gcf,plotName,'ContentType','vector')
+end
 
 %--------------------------------------------------------------------------
 % SKIPAD YAW CONTROLLER
