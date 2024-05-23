@@ -17,7 +17,7 @@ close all;
 clear all;
 clc;
 
-load("LABdata\ENCODERtest.mat"); % IT IS NOT POSSIBLE TO SEE ANYTHING. USELESS. TO AVOID
+load("LABdata/ENCODERtest.mat"); % IT IS NOT POSSIBLE TO SEE ANYTHING. USELESS. TO AVOID
 
 ENCODERtest = data;
 
@@ -42,7 +42,7 @@ grid on;
 
 %---------------------------------------------------------------------------
 
-load("LABdata\MOTORtest.mat"); % IT IS NOT POSSIBLE TO SEE ANYTHING. USELESS. TO AVOID
+load("LABdata/MOTORtest.mat"); % IT IS NOT POSSIBLE TO SEE ANYTHING. USELESS. TO AVOID
 MOTORtest = data;
 
 time = data.time;
@@ -77,7 +77,7 @@ grid on;
 
 %---------------------------------------------------------------------------
 
-load("LABdata\MOTORtest2.mat"); % IT IS NOT POSSIBLE TO SEE ANYTHING. USELESS. TO AVOID
+load("LABdata/MOTORtest2.mat"); % IT IS NOT POSSIBLE TO SEE ANYTHING. USELESS. TO AVOID
 MOTORtest2 = data;
 
 time = data.time;
@@ -113,7 +113,7 @@ grid on;
 
 %---------------------------------------------------------------------------
 
-load("LABdata\MOTORtest3.mat"); % SHOW FORWARD-BRAKE: We have a stop at 4 [rad/s]. AVOID IF POSSIBLE
+load("LABdata/MOTORtest3.mat"); % SHOW FORWARD-BRAKE: We have a stop at 4 [rad/s]. AVOID IF POSSIBLE
 MOTORtest3 = data;
 time = data.time;
 motor1Speed = data.out{1,1};
@@ -147,7 +147,7 @@ grid on;
 
 %---------------------------------------------------------------------------
 
-load("LABdata\MOTORtest4.mat"); % SHOW FORWARD-BRAKE: WELL DONE, AND STEP AT LESS THEN 1s.
+load("LABdata/MOTORtest4.mat"); % SHOW FORWARD-BRAKE: WELL DONE, AND STEP AT LESS THEN 1s.
 MOTORtest4 = data;
 time = data.time;
 motor1Speed = data.out{1,1};
@@ -184,7 +184,7 @@ stepinfo(motor1Speed, time, 10, 0)
 
 %---------------------------------------------------------------------------
 
-load("LABdata\MOTORtest5_2_5_24.mat"); % SHOW FORWARD-BRAKE: WELL DONE, AND STEP AT 5 SECOND PERFECTLY
+load("LABdata/MOTORtest5_2_5_24.mat"); % SHOW FORWARD-BRAKE: WELL DONE, AND STEP AT 5 SECOND PERFECTLY
 MOTORtest5 = data;
 time = data.time;
 motor1Speed = data.out{1,1};
@@ -223,7 +223,7 @@ stepinfo(motor1Speed, time, 10, 0)
 
 %---------------------------------------------------------------------------
 
-load("LABdata\MOTORtest6_2_5_24_AW.mat"); % SHOW FORWARD-BRAKE with AntiWind-Up: WELL DONE, AND STEP AT 5 SECOND PERFECTLY
+load("LABdataMOTORtest6_2_5_24_AW.mat"); % SHOW FORWARD-BRAKE with AntiWind-Up: WELL DONE, AND STEP AT 5 SECOND PERFECTLY
 MOTORtest6AW = data;
 time = data.time;
 motor1Speed = data.out{1,1};
@@ -373,7 +373,7 @@ stepinfo(motor1Speed, time, -10, 0)
 
 %---------------------------------------------------------------------------
 
-load("LABdata\MOTORtest10_2_5_24_FB_rev.mat"); % SHOW FORWARD-BRAKE IN REVERSE: WELL DONE, AND STEP AT 5 SECOND PERFECTLY
+load("LABdata/MOTORtest10_2_5_24_FB_rev.mat"); % SHOW FORWARD-BRAKE IN REVERSE: WELL DONE, AND STEP AT 5 SECOND PERFECTLY
 MOTORtest10FB_rev = data;
 time = data.time;
 motor1Speed = data.out{1,1};
