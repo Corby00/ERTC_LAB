@@ -245,8 +245,6 @@
 % stepinfo(motor1, t, 10, 0)
 
 %---------------------------------------------------------------------------
-clc;
-clear all;
 
 load("LABdata/MOTORtest6_2_5_24_AW.mat"); % SHOW FORWARD-BRAKE with AntiWind-Up: WELL DONE, AND STEP AT 5 SECOND PERFECTLY
 MOTORtest6AW = data;
@@ -260,56 +258,28 @@ ControlAction = data.out{3,1};
 f6= figure(6);
 f6.Name= savename;
 
-% subplot(311);
-% plot(time, motor1Speed);
-% xlabel("time [s]");
-% ylabel("Motor1 Speed [m/s]");
-% grid on;
-% 
-% subplot(312);
-% plot(time, motor2Speed);
-% xlabel("time [s]");
-% ylabel("Motor2 Speed [m/s]");
-% grid on;
-% 
-% subplot(313);
-% hold on;
-% plot(time, ControlAction);
-% xlabel("time [s]");
-% ylabel("Control action [V]");
-% legend('Mot1ContAction', 'Mot2ContAction');
-% grid on;
-% 
-disp("MOTOR TEST 6: Forward-Brake with AntiWindUp:\n")
-%------------ STEPINFO ------------
-index= find(motor1Speed~=0);
-reference= zeros(size(motor1Speed));
-starting_time= time(index(1));
-t= time(index)-starting_time;
-
-for ii= 1:length(motor1Speed)
-    if motor1Speed(ii)>= 10.2
-        motor1Speed(ii)=10.1447;
-    end
-end
-
-
-plot(t, motor1Speed(index));
+subplot(311);
+plot(time, motor1Speed);
 xlabel("time [s]");
 ylabel("Motor1 Speed [m/s]");
 grid on;
+
+subplot(312);
+plot(time, motor2Speed);
+xlabel("time [s]");
+ylabel("Motor2 Speed [m/s]");
+grid on;
+
+subplot(313);
 hold on;
-yline(9.8, "k")
-yline(10.2, "k")
-indextime= find(t<10);
-t=t(indextime);
-motor1= motor1Speed(index); 
-motor1= motor1(indextime);
-disp("MOTOR TEST:\n")
+plot(time, ControlAction);
+xlabel("time [s]");
+ylabel("Control action [V]");
+legend('Mot1ContAction', 'Mot2ContAction');
+grid on;
 
-stepinfo(motor1, t, 10, 0)
-
-
+disp("MOTOR TEST 6: Forward-Brake with AntiWindUp:\n")
+stepinfo(motor1Speed, time, 10, 0)
 
 %---------------------------------------------------------------------------
 % clc;
@@ -523,10 +493,11 @@ stepinfo(motor1, t, 10, 0)
 %---------------------------------------------------------------------------
 %% PRINT
 
-f6=figure(1);
-f6.WindowState= "maximized";
+% TILT CONTROL
+f7=figure(1);
+f7.WindowState= "maximized";
 pause(1);
-f6.Name= 'FORWARD BREAK AW'
+f7.Name= 'FORWARD COAST'
 set(gcf,'defaultAxesTickLabelInterpreter','latex');
 
 
@@ -571,5 +542,5 @@ grid minor;
 legend('Motor 1', 'Motor 2', "Interpreter","latex", "Location","best");
 set(gca, 'FontSize', 12)
 
-plotName= (".\PlotOutput\" + f6.Name + ".pdf");
+plotName= (".\PlotOutput\" + f7.Name + ".pdf");
 exportgraphics(gcf,plotName,'ContentType','vector')
