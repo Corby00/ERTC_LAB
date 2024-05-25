@@ -204,13 +204,13 @@
 % subplot(311);
 % plot(time, motor1Speed);
 % xlabel("time [s]");
-% ylabel("Motor1 Speed [m/s]");
+% ylabel("Motor1 Speed [rad/s]");
 % grid on;
 % 
 % subplot(312);
 % plot(time, motor2Speed);
 % xlabel("time [s]");
-% ylabel("Motor2 Speed [m/s]");
+% ylabel("Motor2 Speed [rad/s]");
 % grid on;
 % 
 % subplot(313);
@@ -260,54 +260,54 @@ ControlAction = data.out{3,1};
 f6= figure(6);
 f6.Name= savename;
 
-% subplot(311);
-% plot(time, motor1Speed);
-% xlabel("time [s]");
-% ylabel("Motor1 Speed [m/s]");
-% grid on;
-% 
-% subplot(312);
-% plot(time, motor2Speed);
-% xlabel("time [s]");
-% ylabel("Motor2 Speed [m/s]");
-% grid on;
-% 
-% subplot(313);
-% hold on;
-% plot(time, ControlAction);
-% xlabel("time [s]");
-% ylabel("Control action [V]");
-% legend('Mot1ContAction', 'Mot2ContAction');
-% grid on;
-% 
-disp("MOTOR TEST 6: Forward-Brake with AntiWindUp:\n")
-%------------ STEPINFO ------------
-index= find(motor1Speed~=0);
-reference= zeros(size(motor1Speed));
-starting_time= time(index(1));
-t= time(index)-starting_time;
-
-for ii= 1:length(motor1Speed)
-    if motor1Speed(ii)>= 10.2
-        motor1Speed(ii)=10.1447;
-    end
-end
-
-
-plot(t, motor1Speed(index));
+subplot(311);
+plot(time, motor1Speed);
 xlabel("time [s]");
 ylabel("Motor1 Speed [m/s]");
 grid on;
-hold on;
-yline(9.8, "k")
-yline(10.2, "k")
-indextime= find(t<10);
-t=t(indextime);
-motor1= motor1Speed(index); 
-motor1= motor1(indextime);
-disp("MOTOR TEST:\n")
 
-stepinfo(motor1, t, 10, 0)
+subplot(312);
+plot(time, motor2Speed);
+xlabel("time [s]");
+ylabel("Motor2 Speed [m/s]");
+grid on;
+
+subplot(313);
+hold on;
+plot(time, ControlAction);
+xlabel("time [s]");
+ylabel("Control action [V]");
+legend('Mot1ContAction', 'Mot2ContAction');
+grid on;
+
+disp("MOTOR TEST 6: Forward-Brake with AntiWindUp:\n")
+% %------------ STEPINFO ------------
+% index= find(motor1Speed~=0);
+% reference= zeros(size(motor1Speed));
+% starting_time= time(index(1));
+% t= time(index)-starting_time;
+% 
+% for ii= 1:length(motor1Speed)
+%     if motor1Speed(ii)>= 10.2
+%         motor1Speed(ii)=10.1447;
+%     end
+% end
+% 
+% 
+% plot(t, motor1Speed(index));
+% xlabel("time [s]");
+% ylabel("Motor1 Speed [m/s]");
+% grid on;
+% hold on;
+% yline(9.8, "k")
+% yline(10.2, "k")
+% indextime= find(t<10);
+% t=t(indextime);
+% motor1= motor1Speed(index); 
+% motor1= motor1(indextime);
+% disp("MOTOR TEST:\n")
+% 
+% stepinfo(motor1, t, 10, 0)
 
 
 
@@ -331,13 +331,13 @@ stepinfo(motor1, t, 10, 0)
 % subplot(311);
 % plot(time, motor1Speed);
 % xlabel("time [s]");
-% ylabel("Motor1 Speed [m/s]");
+% ylabel("Motor1 Speed [rad/s]");
 % grid on;
 % 
 % subplot(312);
 % plot(time, motor2Speed);
 % xlabel("time [s]");
-% ylabel("Motor2 Speed [m/s]");
+% ylabel("Motor2 Speed [rad/s]");
 % grid on;
 % 
 % subplot(313);
@@ -526,7 +526,7 @@ stepinfo(motor1, t, 10, 0)
 f6=figure(1);
 f6.WindowState= "maximized";
 pause(1);
-f6.Name= 'FORWARD BREAK AW'
+f6.Name= 'FORWARD BRAKE AW'
 set(gcf,'defaultAxesTickLabelInterpreter','latex');
 
 
@@ -542,7 +542,7 @@ plot(time, reference, 'LineWidth', 1.25);
 xlim([0;15])
 ylim("padded")
 xlabel("$t \, [s]$", "Interpreter","latex")
-ylabel("Motor 1 Speed $[m/s]$", "Interpreter","latex")
+ylabel("Motor 1 Speed $[rad/s]$", "Interpreter","latex")
 grid on;
 grid minor;
 
@@ -553,7 +553,7 @@ plot(time, reference, 'LineWidth', 1.25);
 xlim([0;15])
 ylim("padded")
 xlabel("$t \, [s]$", "Interpreter","latex")
-ylabel("Motor 2 Speed $[m/s]$", "Interpreter","latex")
+ylabel("Motor 2 Speed $[rad/s]$", "Interpreter","latex")
 grid on;
 grid minor;
 
