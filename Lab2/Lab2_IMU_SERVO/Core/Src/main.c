@@ -45,7 +45,6 @@
 
 // Conversion
 #define RAD2DEG 57.2958
-#define G		9.81
 #define alfa 0.5
 
 /* USER CODE END PD */
@@ -170,11 +169,11 @@ float saturateFloat(float val, float min, float max){
 struct ertc_dlog logger;
 struct datalog
 {
-	float ax, ay,az;
-	float d_thx, d_thy, d_thz;
+	float ay, az; // It is not necessary to send everything also ay;
+	float d_thz;  // It is not necessary to send everything also d_thx, d_thy.
 	float robot_tilt, tilt;
-	//float robot_pan, pan;
-	float theta1, theta2;
+	// float robot_pan, pan;
+	// float theta1, theta2;
 } logger_data;
 
 
@@ -184,7 +183,7 @@ int8_t robot_tilt=0;
 int8_t robot_pan= 0;
 
 float angle = 0;
-
+float G= 9.81; // [m/s] gravitational acceleration.
 
 /* USER CODE END 0 */
 
@@ -264,6 +263,10 @@ int main(void)
 
   /* USER CODE END 2 */
 
+  // Computation of actual acceleration of the accelerometer.
+  bno055_convert_double_accel_xyz_msq(&d_accel_xyz);
+  G = sqrt(pow(d_accel_xyz.x, 2) + pow(d_accel_xyz.y,2) + pow(d_accel_xyz.z,2));
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -274,17 +277,17 @@ int main(void)
 
 	  // Exercise 1 ------------------------------------------------------------------
 	  robot_tilt=asin(d_accel_xyz.y/G)*RAD2DEG;	      // Pitch angle of the robot in deg
-	  tilt=-asin(d_accel_xyz.y/G)*RAD2DEG;  //Control action for tilt control
+	  tilt=-robot_tilt;  //Control action for tilt control
 
 	  // Bonus 1   -------------------------------------------------------------------
-	  angle+=d_gyro_xyz.z*0.02*RAD2DEG;//dt isn't right because we have the delay about the sending data too
+	  angle+=d_gyro_xyz.z*0.02*RAD2DEG; //dt isn't right because we have the delay about the sending data too
 	  pan=-angle;
 
 	  // Bonus 2   --------------------------------------------------------------------
 	  float theta1 = asin(d_accel_xyz.y/G)*RAD2DEG;
 	  float theta2 = acos(saturateFloat(-d_accel_xyz.z/G, -0.9999, 0.99999))*RAD2DEG;
 	  float theta = alfa*theta1+(1-alfa)*theta2;
-	  tilt = - theta;
+	  //tilt = - theta;
 
 
 
@@ -295,18 +298,23 @@ int main(void)
 					(uint32_t)saturate((150+pan*(50.0/45.0)), SERVO_MIN_VALUE, SERVO_MAX_VALUE)); // pan
 
       //htim8.Instance->CNT:
-	  logger_data.ax = d_accel_xyz.x;
+
+	  //logger_data.ax = d_accel_xyz.x;
 	  logger_data.ay = d_accel_xyz.y;
 	  logger_data.az = d_accel_xyz.z;
-	  logger_data.d_thx = d_gyro_xyz.x;
-	  logger_data.d_thy = d_gyro_xyz.y;
+
+	  //logger_data.d_thx = d_gyro_xyz.x;
+	  //logger_data.d_thy = d_gyro_xyz.y;
 	  logger_data.d_thz = d_gyro_xyz.z;
+
 	  logger_data.robot_tilt=robot_tilt;
 	  logger_data.tilt=tilt;
+
 	  //logger_data.robot_pan = angle;
 	  //logger_data.pan = pan;
-	  logger_data.theta1 = theta1;
-	  logger_data.theta2 = theta2;
+
+	  //logger_data.theta1 = theta1;
+	  //logger_data.theta2 = theta2;
 
 	  ertc_dlog_send(&logger, &logger_data, sizeof(logger_data)); //Check if someone is connected and waiting for data
 	  ertc_dlog_update(&logger); // send data
