@@ -1,0 +1,22 @@
+% -------------------------------------------------------------------------
+% EMBEDDED AND REAL TIME CONTROL: GROUP 4
+% Components: Azadegan, Corbioli, Fusari, Garbo
+%
+% Script for plotting PWM signals for comparison between forward/coast and
+% forward/brake.
+%--------------------------------------------------------------------------
+
+clear all;
+close all;
+clc;
+
+timeStep = 0.01;
+time = 0:timeStep:10;
+
+duty = 0.6;
+T = 2.5;
+
+signalFC = zeros(length(time));
+
+if (mod(time)
+
