@@ -104,8 +104,10 @@ set(gca,'XTickLabel',[]);
 %% SAVE FIGURES
 
 if(saveFlag)
+	figure(1)
 	plotName= (".\PlotOutput\" + f1.Name + ".pdf");
 	exportgraphics(gcf,plotName,'ContentType','vector');
+	figure(2)
 	plotName= (".\PlotOutput\" + f2.Name + ".pdf");
 	exportgraphics(gcf,plotName,'ContentType','vector')
 end
