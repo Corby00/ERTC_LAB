@@ -32,19 +32,19 @@ tilt = data.out{3,1};
 f1 = figure(1);
 f1.Name= savename;
 
-subplot(311);
+subplot(411);
 plot(time, accelerometer);
 xlabel("time [s]");
 ylabel("Accelerations [m/s]");
 grid on;
 
-subplot(312);
+subplot(412);
 plot(time, gyroscope);
 xlabel("time [s]");
 ylabel("Gyroscope [m/s]");
 grid on;
 
-subplot(313);
+subplot(413);
 hold on;
 plot(time, tilt);
 xlabel("time [s]");
@@ -67,19 +67,19 @@ tilt = data.out{3,1};
 f2 = figure(2);
 f2.Name= savename;
 
-subplot(311);
+subplot(411);
 plot(time, accelerometer);
 xlabel("time [s]");
 ylabel("Accelerations [m/s]");
 grid on;
 
-subplot(312);
+subplot(412);
 plot(time, gyroscope);
 xlabel("time [s]");
 ylabel("Gyroscope [m/s]");
 grid on;
 
-subplot(313);
+subplot(413);
 hold on;
 plot(time, tilt);
 xlabel("time [s]");
@@ -102,19 +102,19 @@ pan = data.out{3,1};
 f3 = figure(3);
 f3.Name= savename;
 
-subplot(311);
+subplot(411);
 plot(time, accelerometer);
 xlabel("time [s]");
 ylabel("Accelerations [m/s]");
 grid on;
 
-subplot(312);
+subplot(412);
 plot(time, gyroscope);
 xlabel("time [s]");
 ylabel("Gyroscope [m/s]");
 grid on;
 
-subplot(313);
+subplot(413);
 hold on;
 plot(time, pan);
 xlabel("time [s]");
@@ -137,19 +137,19 @@ pan = data.out{3,1};
 f4 = figure(4);
 f4.Name= savename;
 
-subplot(311);
+subplot(411);
 plot(time, accelerometer);
 xlabel("time [s]");
 ylabel("Accelerations [m/s]");
 grid on;
 
-subplot(312);
+subplot(412);
 plot(time, gyroscope);
 xlabel("time [s]");
 ylabel("Gyroscope [m/s]");
 grid on;
 
-subplot(313);
+subplot(413);
 hold on;
 plot(time, pan);
 xlabel("time [s]");

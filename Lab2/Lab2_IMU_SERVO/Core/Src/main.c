@@ -45,7 +45,7 @@
 
 // Conversion
 #define RAD2DEG 57.2958
-#define alfa 0.5
+#define alfa 0.70
 
 /* USER CODE END PD */
 
@@ -169,11 +169,11 @@ float saturateFloat(float val, float min, float max){
 struct ertc_dlog logger;
 struct datalog
 {
-	float ay, az; // It is not necessary to send everything also ay;
-	float d_thz;  // It is not necessary to send everything also d_thx, d_thy.
+	float ay; // It is not necessary to send everything also ay;
+	float d_thx, d_thz;  // It is not necessary to send everything also d_thx, d_thy.
 	float robot_tilt, tilt;
-	// float robot_pan, pan;
-	// float theta1, theta2;
+	//float robot_pan, pan;
+	float theta1, theta2;
 } logger_data;
 
 
@@ -183,6 +183,7 @@ int8_t robot_tilt=0;
 int8_t robot_pan= 0;
 
 float angle = 0;
+float theta2 = 0;
 float G= 9.81; // [m/s] gravitational acceleration.
 
 /* USER CODE END 0 */
@@ -285,9 +286,11 @@ int main(void)
 
 	  // Bonus 2   --------------------------------------------------------------------
 	  float theta1 = asin(d_accel_xyz.y/G)*RAD2DEG;
-	  float theta2 = acos(saturateFloat(-d_accel_xyz.z/G, -0.9999, 0.99999))*RAD2DEG;
+	  theta2 += -d_gyro_xyz.x*0.02*RAD2DEG;
 	  float theta = alfa*theta1+(1-alfa)*theta2;
-	  //tilt = - theta;
+	  tilt = - theta;
+
+
 
 
 
@@ -301,20 +304,21 @@ int main(void)
 
 	  //logger_data.ax = d_accel_xyz.x;
 	  logger_data.ay = d_accel_xyz.y;
-	  logger_data.az = d_accel_xyz.z;
+	  //logger_data.az = d_accel_xyz.z;
 
-	  //logger_data.d_thx = d_gyro_xyz.x;
+	  logger_data.d_thx = d_gyro_xyz.x;
 	  //logger_data.d_thy = d_gyro_xyz.y;
 	  logger_data.d_thz = d_gyro_xyz.z;
 
-	  logger_data.robot_tilt=robot_tilt;
+	  //logger_data.robot_tilt=robot_tilt; // For bonus 1.
+	  logger_data.robot_tilt= theta; // For bonus 2 we send the complete angle
 	  logger_data.tilt=tilt;
 
 	  //logger_data.robot_pan = angle;
 	  //logger_data.pan = pan;
 
-	  //logger_data.theta1 = theta1;
-	  //logger_data.theta2 = theta2;
+	  logger_data.theta1 = theta1;
+	  logger_data.theta2 = theta2;
 
 	  ertc_dlog_send(&logger, &logger_data, sizeof(logger_data)); //Check if someone is connected and waiting for data
 	  ertc_dlog_update(&logger); // send data
