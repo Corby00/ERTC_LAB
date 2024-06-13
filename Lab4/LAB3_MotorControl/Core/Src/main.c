@@ -19,7 +19,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -63,8 +62,8 @@
 
 #define RPM2RADS	2*M_PI/60
 
-#define V_max 0.1 //[m/s] maximum linear speed
-#define P_gainmax 18   //change from 18
+#define V_max 0.6 //[m/s] maximum linear speed
+#define P_gainmax 18   //
 #define r 0.034 //[m] wheel radius
 #define D 0.165 //[m] wheel distance
 #define H 0.085 //[m] distance between line sensor and vehicle's center
@@ -90,6 +89,7 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
+TIM_HandleTypeDef htim6;
 TIM_HandleTypeDef htim8;
 TIM_HandleTypeDef htim9;
 
@@ -99,34 +99,6 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
-/* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
-const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
-};
-/* Definitions for controlTask */
-osThreadId_t controlTaskHandle;
-const osThreadAttr_t controlTask_attributes = {
-  .name = "controlTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityRealtime,
-};
-/* Definitions for lineTask */
-osThreadId_t lineTaskHandle;
-const osThreadAttr_t lineTask_attributes = {
-  .name = "lineTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityRealtime,
-};
-/* Definitions for commTask */
-osThreadId_t commTaskHandle;
-const osThreadAttr_t commTask_attributes = {
-  .name = "commTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
-};
 /* USER CODE BEGIN PV */
 struct ertc_dlog logger;
 /* USER CODE END PV */
@@ -150,11 +122,7 @@ static void MX_UART5_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM9_Init(void);
-void StartDefaultTask(void *argument);
-void StartControlTask(void *argument);
-void StartLineTask(void *argument);
-void StartCommTask(void *argument);
-
+static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 extern void initialise_monitor_handles(void);
 /* USER CODE END PFP */
@@ -171,6 +139,9 @@ struct datalog {
 uint8_t line_sensor=0;
 float w[8] = {0.028, 0.02, 0.012, 0.004, -0.004, -0.012, -0.02, -0.028}; //Computation done off-line following the formula.
 
+float target = 6; //[rad/s]
+
+bool changedV = false;  //Boolean flag for changing V at half-frequency of the controller frequency
 float V_cont = V_max;
 float P_gain = P_gainmax;
 
@@ -185,11 +156,8 @@ float speed1 =0;
 float speed2 =0;
 float error1 =0;
 float error2 =0;
-
-int32_t ENC1_DiffCount =0;
-int32_t ENC2_DiffCount =0;
-
-HAL_StatusTypeDef status1;
+int count_iter = max_iter;
+int i=0;
 
 float saturation(float value, float min, float max)
 {
@@ -361,6 +329,94 @@ float line_error(uint8_t sensor)
 	return sum_Num/sum_Den;
 }
 
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	/* Speed ctrl routine */
+	if(htim->Instance == TIM6)
+	{
+
+		// LINE SENSOR READING
+		HAL_StatusTypeDef status1;
+		status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DATA_B, 1, &line_sensor, 1, I2C_TIMEOUT);
+
+		if (line_sensor != 0 || count_iter==0 )
+		{
+			count_iter = max_iter;
+			lineErr = line_error(line_sensor);
+
+			// DUMB CONTROLLER: FIRST APPROACH
+
+			//float speedVar = lineErr*450; //TODO: To tune
+			//float error1 = saturation((target+speedVar), 0, 25)- speed1;
+			//float error2 = saturation((target-speedVar), 0, 25)- speed2;
+
+			// YAW CONTROLLER FROM HANDOUTS
+
+			psi_err = atan(lineErr/H);
+
+			psi_dot = psi_err*P_gain;
+
+			// Adaptive part for V_cont
+
+			if (changedV)
+			{
+				if (abs(psi_err) < 0.01)
+				{
+					V_cont =  V_max * (1.2+i*0.1) ;
+					P_gain = P_gainmax;
+					i++;
+				}
+				else if (abs(psi_err) < 0.02)
+				{
+					i=0;
+					V_cont = V_max * (-40*psi_err + 1.40);
+					P_gain = P_gainmax + 16;
+				}
+				else // Big error
+				{
+					i=0;
+					V_cont = V_max * 0.60;
+					P_gain = P_gainmax + 36;
+				}
+				changedV = true;
+			}
+			else
+				changedV = false;
+
+			Vr = V_cont + psi_dot*D/2;
+			Vl = V_cont - psi_dot*D/2;
+
+
+			int32_t ENC1_DiffCount = encoder1();
+			int32_t ENC2_DiffCount = encoder2();
+
+			speed1 = ENC1_DiffCount * V *1/TS ; // [rad/s]
+			speed2 = ENC2_DiffCount * V *1/TS ; // [rad/s]
+
+			error1 = saturation((Vr/r), 0, 100) - speed1;
+			error2 = saturation((Vl/r), 0, 100) - speed2;
+
+			contAct1 = PI1(error1);
+			contAct2 = PI2(error2);
+
+		}
+		else
+			count_iter -= 1;
+
+		motor1_PWM (contAct1*V2DUTY);
+		motor2_PWM (contAct2*V2DUTY);
+
+     	/*	Prepare data packet */
+		data.speed1 = speed1;
+		data.speed2 = speed2;
+		//data.motor1 = contAct1;
+		//data.motor2 = contAct2;
+		data.lineRead  = lineErr;
+		ertc_dlog_update(&logger);
+		ertc_dlog_send(&logger, &data, sizeof(data));
+	}
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -408,6 +464,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_TIM9_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
 
   //logger.uart_handle = huart3; // for serial
@@ -567,55 +624,14 @@ int main(void)
   HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_4);
 
- // HAL_Delay(5000);
+  /* Start speed ctrl ISR */
+  HAL_TIM_Base_Start_IT(&htim6);
+
+  // HAL_Delay(5000);
   //target=6; //[rad/s]
 
   /* USER CODE END 2 */
 
-  /* Init scheduler */
-  osKernelInitialize();
-
-  /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
-  /* USER CODE END RTOS_MUTEX */
-
-  /* USER CODE BEGIN RTOS_SEMAPHORES */
-  /* add semaphores, ... */
-  /* USER CODE END RTOS_SEMAPHORES */
-
-  /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
-  /* USER CODE END RTOS_TIMERS */
-
-  /* USER CODE BEGIN RTOS_QUEUES */
-  /* add queues, ... */
-  /* USER CODE END RTOS_QUEUES */
-
-  /* Create the thread(s) */
-  /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
-
-  /* creation of controlTask */
-  controlTaskHandle = osThreadNew(StartControlTask, NULL, &controlTask_attributes);
-
-  /* creation of lineTask */
-  lineTaskHandle = osThreadNew(StartLineTask, NULL, &lineTask_attributes);
-
-  /* creation of commTask */
-  commTaskHandle = osThreadNew(StartCommTask, NULL, &commTask_attributes);
-
-  /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
-  /* USER CODE END RTOS_THREADS */
-
-  /* USER CODE BEGIN RTOS_EVENTS */
-  /* add events, ... */
-  /* USER CODE END RTOS_EVENTS */
-
-  /* Start scheduler */
-  osKernelStart();
-
-  /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -1195,6 +1211,44 @@ static void MX_TIM5_Init(void)
 }
 
 /**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = TIM6_PSC_VALUE;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = TIM6_ARR_VALUE;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
   * @brief TIM8 Initialization Function
   * @param None
   * @retval None
@@ -1631,170 +1685,6 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
-
-/* USER CODE BEGIN Header_StartDefaultTask */
-/**
-  * @brief  Function implementing the defaultTask thread.
-  * @param  argument: Not used
-  * @retval None
-  */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
-{
-  /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END 5 */
-}
-
-/* USER CODE BEGIN Header_StartControlTask */
-/**
-* @brief Function implementing the controlTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartControlTask */
-void StartControlTask(void *argument)
-{
-  /* USER CODE BEGIN StartControlTask */
-  /* Infinite loop */
-  for(;;)
-  {
-	// YAW CONTROLLER FROM HANDOUTS
-	if(lineErr!=0)
-	{
-		psi_err = atan(lineErr/H);
-	}else
-		psi_err =0;
-
-	psi_dot = psi_err*P_gain;
-
-	// Adaptive part for V_cont
-	/*
-	if (changedV_1)
-	{
-		if (abs(psi_err) < 0.01)  // TODO: Tune threshold ()
-		{
-			V_cont =  V_max * (1.2);//+i*0.1) ;
-			P_gain = P_gainmax;
-			//i++;
-		}
-		else if (abs(psi_err) < 0.02)
-		{
-			//i=0;
-			V_cont = V_max * (-40*psi_err + 1.40);
-			P_gain = P_gainmax + 16;
-		}
-		else // Big error
-		{
-
-			V_cont = V_max * 0.60;//V_max * (1.2)+i*0.1
-			P_gain = P_gainmax + 36;
-			//i--;
-		}
-		changedV_1 = true;
-	}
-	else
-		changedV_1 = false;
-	*/
-
-	Vr = V_cont + psi_dot*D/2;
-	Vl = V_cont - psi_dot*D/2;
-
-	ENC1_DiffCount = encoder1();
-	ENC2_DiffCount = encoder2();
-
-	speed1 = ENC1_DiffCount * V *1/TS ; // [rad/s]
-	speed2 = ENC2_DiffCount * V *1/TS ; // [rad/s]
-
-	error1 = saturation((Vr/r), 0, 100) - speed1;
-	error2 = saturation((Vl/r), 0, 100) - speed2;
-
-	contAct1 = PI1(error1);
-	contAct2 = PI2(error2);
-
-	motor1_PWM (contAct1*V2DUTY);
-	motor2_PWM (contAct2*V2DUTY);
-
-    osDelayUntil(10);
-  }
-  /* USER CODE END StartControlTask */
-}
-
-/* USER CODE BEGIN Header_StartLineTask */
-/**
-* @brief Function implementing the lineTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartLineTask */
-void StartLineTask(void *argument)
-{
-  /* USER CODE BEGIN StartLineTask */
-  /* Infinite loop */
-  for(;;)
-  {
-	  data.speed1 = speed1;
-	  data.speed2 = speed2;
-	  //data.motor1 = contAct1;
-	  //data.motor2 = contAct2;
-	  data.lineRead  = lineErr;
-	  ertc_dlog_update(&logger);
-	  ertc_dlog_send(&logger, &data, sizeof(data));
-	 // LINE SENSOR READING
-	status1 = HAL_I2C_Mem_Read(&hi2c1, SX1509_I2C_ADDR1 << 1, REG_DATA_B, 1, &line_sensor, 1, I2C_TIMEOUT);
-
-	lineErr = line_error(line_sensor);
-
-    osDelayUntil(10);
-  }
-  /* USER CODE END StartLineTask */
-}
-
-/* USER CODE BEGIN Header_StartCommTask */
-/**
-* @brief Function implementing the commTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartCommTask */
-void StartCommTask(void *argument)
-{
-  /* USER CODE BEGIN StartCommTask */
-  /* Infinite loop */
-  for(;;)
-  {
-    /*	Prepare data packet */
-
-
-    osDelayUntil(10);
-  }
-  /* USER CODE END StartCommTask */
-}
-
-/**
-  * @brief  Period elapsed callback in non blocking mode
-  * @note   This function is called  when TIM6 interrupt took place, inside
-  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
-  * a global variable "uwTick" used as application time base.
-  * @param  htim : TIM handle
-  * @retval None
-  */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-  /* USER CODE BEGIN Callback 0 */
-
-  /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM6) {
-    HAL_IncTick();
-  }
-  /* USER CODE BEGIN Callback 1 */
-
-  /* USER CODE END Callback 1 */
-}
 
 /**
   * @brief  This function is executed in case of error occurrence.
