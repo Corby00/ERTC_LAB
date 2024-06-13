@@ -520,7 +520,7 @@ maxTime = 6;
 index = find(time>minTime-timeStep & time<maxTime+timeStep);
 
 time = time(index);
-accelerometer = data.out{1,1} (:, index);
+accelerometer = data.out{1,1} (1, index);
 tilt = data.out{3,1}(:, index);
 
 if (ToReportPlot | Toprint)

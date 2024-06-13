@@ -63,7 +63,7 @@ set(gca, 'FontSize', 10)
 plotName = ".\PlotOutput\" + f2.Name + ".pdf";
 exportgraphics(gcf,plotName,'ContentType','vector')
 
-scatter(possible_psi_err, possible_gain,[], [0 0.4470 0.7410], 'filled');
+% scatter(possible_psi_err, possible_gain,[], [0 0.4470 0.7410], 'filled');
 
 %% THIRD PLOT: ACTUAL (and thought in designing phase) GAIN CHANGE IN
 % FUNCTION OF e_SL
@@ -94,15 +94,15 @@ xlim("tight");
 
 grid on;
 grid minor;
-legend("Actual Gain", "Designed Gain", "Interpreter","latex", "Location","best");
+legend("Designed Gain", "Actual Gain", "Interpreter","latex", "Location","best");
 
-%scatter(H*tan(possible_psi_err), possible_gain, [], [0 0.4470 0.7410], 'filled');
-possible_gain = gain2(ismember(e_SL, possible_e_SL));
-%scatter(H*tan(possible_psi_err), possible_gain,[], [0.8500 0.3250 0.0980], 'filled');
+% scatter(H*tan(possible_psi_err), possible_gain, [], [0 0.4470 0.7410], 'filled');
+% possible_gain = gain2(ismember(e_SL, possible_e_SL));
+% scatter(H*tan(possible_psi_err), possible_gain,[], [0.8500 0.3250 0.0980], 'filled');
 
 set(gca, 'FontSize', 10)
 plotName = ".\PlotOutput\" + f3.Name + ".pdf";
 exportgraphics(gcf,plotName,'ContentType','vector')
 
 % ERROR WEIGHTS
-%xline([0.028, 0.02, 0.012, 0.004, -0.004, -0.012, -0.02, -0.028], '--')
+% xline([0.028, 0.02, 0.012, 0.004, -0.004, -0.012, -0.02, -0.028], '--')
