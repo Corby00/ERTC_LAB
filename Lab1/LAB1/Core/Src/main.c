@@ -141,14 +141,6 @@ char keyinput[5];
 int i=0;
 uint8_t regCol, regRow;
 
-/* --------------------------------------------------------- THESE VARIABLES CANNOT BE
- * 															 unit8_t since they need to
- * 															 store values greater than 255
-uint8_t f_led=1; //frequency of the led actually running
-uint8_t f_user=1;//frequency set by the user (keypad input)
-uint8_t Counter_led;//counter value of the timer 7 "collegato" led
-*/
-
 unsigned int f_led=1; //frequency of the led actually running
 unsigned int f_user=1;//frequency set by the user (keypad input)
 uint16_t Counter_led;//counter value of the timer 7 "collegato" led
@@ -167,7 +159,7 @@ int ve_char2var_int(char vector[])
 	return variable;
 }
 
-//function timer modify�?-------------------------------------------
+//function timer modification -------------------------------------------
 void f_timer7_edit()
 {
 	if(f_led!=f_user)//check if f_led is changed (ponder to swap position)
